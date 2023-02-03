@@ -1,35 +1,3 @@
-import numpy as np
-import pandas as pd
-import time
-
-from butterworth_filter import *
-
-class DataIterator:
-    def __init__(self, n_samples, sampling_rate, channel, data_file):
-        # channel is assumed to be zero-indexed
-        self.n_samples = n_samples
-        self.sampling_rate = sampling_rate
-        self.counter = 0
-
-        D = np.array(pd.read_csv(data_file))
-        self.data = D[:, channel]
-
-        self.n_rows = len(self.data)
-
-    def __iter__(self):
-        return self
-
-    def __next__(self):
-        idx_start = self.n_samples * self.counter
-        idx_end = idx_start + self.n_samples
-        if idx_end <= self.n_rows:
-            time.sleep(self.n_samples/self.sampling_rate)      
-            self.counter += 1
-            next_data = self.data[idx_start:idx_end]
-            return next_data
-        else:
-            raise StopIteration
-
 def find_poi(data, rise_fall_ctrl):
     # poi: point of interest for stimulation
     if (abs(rise_fall_ctrl) == 2):  # look for rising or descending phase
@@ -84,17 +52,3 @@ def prepare_decide_stim(amp_thrs_perc, amp_sampling_rate, min_time_diff_pulses, 
             return False
                         
     return decide_stim
-
-
-n = 18
-AMP_SR = 1000   # Hz
-channel = 14
-file = './main_code/test_data/tst.csv'
-
-FREQ_LOW = 10 # in Hz
-FREQ_HIGH= 13 # in Hz
-BUTTERWORTH_FLTER_ORDER = 2
-
-
-a = DataIterator(n_samples=n, sampling_rate=AMP_SR, channel=channel, data_file=file)
-f = prepare_filter(f_low=FREQ_LOW, f_high=FREQ_HIGH, sampling_rate=AMP_SR, f_order=BUTTERWORTH_FLTER_ORDER)

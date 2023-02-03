@@ -23,21 +23,9 @@ def generate_player_single(pulse_duration):
 def test_player(p):
     p.Play(wait = True)
 
-def test_player_single(p, N_pulses):
+def test_player_single(p, N_pulses, IPI):
     i = 1
     while i <= N_pulses:
         p.Play(wait = True)
         time.sleep(IPI)
         i += 1
-
-N_pulses = 3
-pulse_duration = 100 # ms
-IPI = 1.0 # sec
-ITI = 2.0 # sec
-
-p = generate_player(N_pulses, pulse_duration, IPI)
-
-p_single = generate_player_single(pulse_duration)
-
-
-test_player_single(p_single, N_pulses)
