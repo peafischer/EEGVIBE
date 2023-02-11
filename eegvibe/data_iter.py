@@ -3,14 +3,15 @@ import pandas as pd
 import time
 
 class DataIterator:
-    def __init__(self, n_samples, sampling_rate, channel, data_file):
+    def __init__(self, n_samples, sampling_rate, data_file):
         # channel is assumed to be zero-indexed
         self.n_samples = n_samples
         self.sampling_rate = sampling_rate
         self.counter = 0
+        self.stop = False
 
         D = np.array(pd.read_csv(data_file))
-        self.data = D[:, channel]
+        self.data = D[:, :]
 
         self.n_rows = len(self.data)
 
@@ -27,3 +28,7 @@ class DataIterator:
             return next_data
         else:
             raise StopIteration
+
+    def acquire_data(self, queue):
+        while not self.stop:
+            queue.put({'topic': 'sample', 'data': next(self)})
