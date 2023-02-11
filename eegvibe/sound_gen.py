@@ -8,11 +8,13 @@ def generate_player(N_pulses, pulse_duration, IPI):
     s = am.Sound(fs=44100).GenerateWaveform(duration_msec = pulse_duration, freq_hz=440)
 
     pulse_train = []
-    for i in range(0, N_pulses):
+    for i in range(0, N_pulses-1):
         pulse_train.append(s)
         pulse_train.append(IPI)
 
-    p = am.Player(am.Concatenate(pulse_train), device = 0)
+    pulse_train.append(s)
+    p = am.Player(am.Concatenate(pulse_train), device = 2)
+   
     return p
 
 def generate_player_single(pulse_duration):
