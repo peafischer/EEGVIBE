@@ -22,16 +22,21 @@ class DataIterator:
         idx_start = self.n_samples * self.counter
         idx_end = idx_start + self.n_samples
         if idx_end <= self.n_rows:
-            #time.sleep(self.n_samples/self.sampling_rate)   
-            time.sleep(0.0001)   
+            time.sleep(self.n_samples/self.sampling_rate)   
             self.counter += 1
+
+            if ((self.n_samples + 1) * self.counter) > self.n_rows:
+                self.reset()
+
             next_data = self.data[idx_start:idx_end]
             return next_data
         else:
             self.counter = 0 # reset iterator
-            #raise StopIteration
+            raise StopIteration
 
     def acquire_data(self, queue):
         while not self.stop:
             queue.put({'topic': 'sample', 'data': next(self)})
             
+    def reset(self):
+        self.counter = 0
