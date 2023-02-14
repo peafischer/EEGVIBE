@@ -4,6 +4,7 @@ from time import sleep
 import zmq
 from .sound_gen import generate_player
 from .connect import generate_publisher, generate_subscriber
+from .filter import HighPassFilter, mean_subtract
 
 class Oscilltrack:
     a = 0.0
@@ -90,6 +91,8 @@ def track_phase(port, topic, port_plot, topic_plot):
     IPI = 0.0 # sec
     p = generate_player(N_pulses, pulse_duration, IPI)
 
+    filt = HighPassFilter(freq_corner=8, freq_sample=1/t_step)
+
     context = zmq.Context()
     socket = generate_subscriber(port, topic, context)
     plot_socket = generate_publisher(port_plot, context)
@@ -103,15 +106,17 @@ def track_phase(port, topic, port_plot, topic_plot):
             plot_socket.send_pyobj(data, zmq.SNDMORE)
             break
         
-        channel_data = data[0, channel]
-        tracker.update(channel_data)
+        data_channel = mean_subtract(data[0, :], data[0, channel])
+        filt_data = filt.filter(data_channel)
+        
+        tracker.update(filt_data)
         is_stim = tracker.decide_stim()
 
         if is_stim:
             p.Play(wait = False)
 
         plot_socket.send_string(topic_plot, zmq.SNDMORE)
-        plot_socket.send_pyobj(channel_data, zmq.SNDMORE)
+        plot_socket.send_pyobj(filt_data, zmq.SNDMORE)
         plot_socket.send_pyobj(is_stim)
 
         i+=1
