@@ -14,3 +14,4 @@ def generate_subscriber(port, topic, context):
     socket.setsockopt(zmq.SUBSCRIBE, ''.encode('utf-8'))
 
     return socket
+    
