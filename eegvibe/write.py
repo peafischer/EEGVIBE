@@ -30,3 +30,4 @@ def write_stream(file_name, port, topic):
     sleep(1)  # Gives enough time for the publishers to finish sending data before closing the socket
     f.flush()
     print(f'Acquired {i} samples')
+    
