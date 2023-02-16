@@ -9,7 +9,7 @@ import zmq
 
 import numpy as np
 
-from .connect import generate_publisher, generate_subscriber
+from .connect import generate_subscriber, is_stop_data
 from .read import DataIterator
 
 def update_plot_sync(plot_ref, y, stim_mask, data_iter, channel, timer):
@@ -49,7 +49,7 @@ def plot_sync():
 def update_plot(plot_ref, y, x, stim_mask, socket, timer):
     topic = socket.recv_string()
     data = socket.recv_pyobj()
-    if not isinstance(data, str):
+    if not is_stop_data(data):
         is_stim = socket.recv_pyobj()
         y.append(data)
         stim_mask.append(is_stim)
@@ -67,10 +67,13 @@ def plot_stream(port, topic):
     p = pw.plotItem
     p.setTitle("Stream")
 
-    n_plot_samples = 20
+    n_plot_samples = 200
     x = np.arange(0, n_plot_samples)
     y = deque([0.0]*n_plot_samples, maxlen = n_plot_samples)
     stim_mask = deque([False]*n_plot_samples, maxlen = n_plot_samples)
+    
+    p.disableAutoRange()
+    p.setRange(xRange = (0, n_plot_samples), yRange = (-2,2))
 
     plot_ref = p.plot(x, y)
 

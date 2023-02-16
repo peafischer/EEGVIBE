@@ -3,7 +3,7 @@ from math import atan2
 from time import sleep
 import zmq
 from .sound_gen import generate_player
-from .connect import generate_publisher, generate_subscriber
+from .connect import generate_publisher, generate_subscriber, MRStream, is_stop_data
 from .filter import HighPassFilter, mean_subtract
 
 class Oscilltrack:
@@ -94,14 +94,13 @@ def track_phase(port, topic, port_plot, topic_plot):
     filt = HighPassFilter(freq_corner=8, freq_sample=1/t_step)
 
     context = zmq.Context()
-    socket = generate_subscriber(port, topic, context)
+    most_recent_stream = MRStream(port, topic, context)
     plot_socket = generate_publisher(port_plot, context)
 
     i = 0
     while True:
-        topic = socket.recv_string()
-        data = socket.recv_pyobj() 
-        if isinstance(data, str):
+        data = most_recent_stream.receive()
+        if is_stop_data(data):
             plot_socket.send_string(topic_plot, zmq.SNDMORE)
             plot_socket.send_pyobj(data, zmq.SNDMORE)
             break
@@ -123,5 +122,5 @@ def track_phase(port, topic, port_plot, topic_plot):
 
     print(f'Analysed {i} samples')
     sleep(1)  # Gives enough time to the subscribers to update their status
-    socket.close()
+    most_recent_stream.close()
     plot_socket.close()
