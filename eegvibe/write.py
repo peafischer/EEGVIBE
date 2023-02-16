@@ -1,7 +1,7 @@
 import zmq
 import h5py
 from time import sleep
-from .connect import generate_subscriber
+from .connect import generate_subscriber, is_stop_data
 
 def write_stream(file_name, port, topic):
     
@@ -26,14 +26,14 @@ def write_stream(file_name, port, topic):
     while True:
         topic = socket.recv_string()
         data = socket.recv_pyobj() 
-        if isinstance(data, str):
+        if is_stop_data(data):
             break
 
         n_samples = data.shape[0]
         dset.resize((dset.shape[0] + n_samples, n_channels))
         dset[-n_samples: , :] = data
         i += 1
-        
+
     sleep(1)  # Gives enough time for the publishers to finish sending data before closing the socket
     f.flush()
     f.close()
