@@ -3,13 +3,13 @@ import threading
 
 from time import sleep, time
 
-from eegvibe import DataIterator, plot_stream, track_phase, write_stream, publisher, stream_to_queue
+from eegvibe import DataIterator, plot_stream, track_phase, write_stream, publish_from_queue, stream_to_queue
 
 if __name__ == '__main__':
     n = 1
     AMP_SR = 1000   # Hz
     channel = 0
-    file = './test_data/tst_simple.csv'
+    file = './test_data/tst_10.csv'
 
     port = 5555
     topic = 'sample'
@@ -22,26 +22,26 @@ if __name__ == '__main__':
     stop_event = Event()
     stop_stream_event = threading.Event()
     
-    #data_thread = Thread(target=data_iter.acquire_data, args=(pub_queue,))
-    #data_thread.start()
-    
-    data_thread = threading.Thread(target=stream_to_queue, args = (pub_queue, stop_stream_event))
+    data_thread = threading.Thread(target=data_iter.acquire_data, args=(pub_queue,))
     data_thread.start()
     
-    publisher_process = Process(target=publisher, args=(pub_queue, stop_event, port))
+    #data_thread = threading.Thread(target=stream_to_queue, args = (pub_queue, stop_stream_event))
+    #data_thread.start()
+    
+    publisher_process = Process(target=publish_from_queue, args=(pub_queue, stop_event, port))
     publisher_process.start()
 
     analyzer_process = Process(target=track_phase, args=(port, topic, plot_port, plot_topic))
     analyzer_process.start()
 
-    #saver_process = Process(target=write_stream, args=('tst', port, topic))
-    #saver_process.start()
+    saver_process = threading.Thread(target=write_stream, args=('tst', port, topic))
+    saver_process.start()
 
     plot_process = Process(target=plot_stream, args=(plot_port, plot_topic))
     plot_process.start()
     
     t0 = time()
-    while time()-t0 < 5:
+    while time()-t0 < 15:
         print('Still acquiring')
         sleep(1) 
     
@@ -52,6 +52,6 @@ if __name__ == '__main__':
     analyzer_process.join()
     stop_event.set()
     publisher_process.join()
-    #saver_process.join()
+    saver_process.join()
     plot_process.join()
     print('Bye')
