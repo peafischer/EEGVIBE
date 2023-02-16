@@ -38,6 +38,30 @@ def publish_from_queue(queue, event, port):
     socket.close()
 
 def stream_to_publish(event, port, topic):
+    context = zmq.Context()
+    socket = generate_publisher(port, context)
+
+    factory = eego_sdk.factory()
+    amplifiers = factory.getAmplifiers()
+    amplifier = amplifiers[0]
+    
+    rates = amplifier.getSamplingRatesAvailable()
+    ref_ranges = amplifier.getReferenceRangesAvailable()
+    bip_ranges = amplifier.getBipolarRangesAvailable()
+    stream = amplifier.OpenEegStream(rates[0], ref_ranges[0], bip_ranges[0])
+
+    i = 0
+    while not event.is_set():
+        data = np.array(stream.getData())
+        socket.send_string(topic, zmq.SNDMORE)
+        socket.send_pyobj(data)
+        i += 1
+    sleep(0.005)  # Sleeps 5 milliseconds to be polite with the CPU
+    print(f'Sent {i} samples')
+    socket.send_string('stop')
+    sleep(1)  # Gives enough time to the subscribers to update their status
+    socket.close()
+
 class DataIterator:
     def __init__(self, n_samples, sampling_rate, data_file):
         # channel is assumed to be zero-indexed
@@ -76,21 +100,4 @@ class DataIterator:
             
     def reset(self):
         self.counter = 0
-
-def publisher(queue, event, port):
-    context = zmq.Context()
-    socket = generate_publisher(port, context)
-
-    i = 0
-    while not event.is_set():
-        while not queue.empty():
-            data = queue.get()  # Should be a dictionary {'topic': topic, 'data': data}
-            socket.send_string(data['topic'], zmq.SNDMORE)
-            socket.send_pyobj(data['data'])
-            i += 1
-    sleep(0.005)  # Sleeps 5 milliseconds to be polite with the CPU
-    print(f'Sent {i} samples')
-    socket.send_string('stop')
-    sleep(1)  # Gives enough time to the subscribers to update their status
-    socket.close()
     
