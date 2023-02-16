@@ -67,10 +67,13 @@ def plot_stream(port, topic):
     p = pw.plotItem
     p.setTitle("Stream")
 
-    n_plot_samples = 20
+    n_plot_samples = 200
     x = np.arange(0, n_plot_samples)
     y = deque([0.0]*n_plot_samples, maxlen = n_plot_samples)
     stim_mask = deque([False]*n_plot_samples, maxlen = n_plot_samples)
+    
+    p.disableAutoRange()
+    p.setRange(xRange = (0, n_plot_samples), yRange = (-2,2))
 
     plot_ref = p.plot(x, y)
 
