@@ -93,16 +93,20 @@ def track_phase(port_publish, topic_publish, port_plot, topic_plot,
     most_recent_stream = MRStream(port_publish, topic_publish, context)
     plot_socket = generate_publisher(port_plot, context)
 
+    filters_EMG = [HighPassFilter(freq_corner = freq_corner, freq_sample = freq_sample) for _ in range(len(channels_EMG))]
+    filt_data_EMG = np.zeros(len(channels_EMG))
+
     i = 0
     while True:
         data = most_recent_stream.receive()
         if is_stop_data(data):
             plot_socket.send_string(topic_plot, zmq.SNDMORE)
             plot_socket.send_pyobj(data, zmq.SNDMORE)
+            plot_socket.send_pyobj(filt_data_EMG)
             break
         
-        data_channel = mean_subtract(data[0, :], data[0, channel])
-        filt_data = filt.filter(data_channel)
+        data_track = mean_subtract(data[0, channels_ms], data[0, channel_track])
+        filt_data = filt.filter(data_track)
         
         tracker.update(filt_data)
         is_stim = tracker.decide_stim()
@@ -110,9 +114,13 @@ def track_phase(port_publish, topic_publish, port_plot, topic_plot,
         if is_stim:
             p.Play(wait = False)
 
+        for j, c_EMG in enumerate(channels_EMG):
+            data_EMG = mean_subtract(data[0, channels_ms], data[0, c_EMG])
+            filt_data_EMG[j] = filters_EMG[j].filter(data_EMG)
+
         plot_socket.send_string(topic_plot, zmq.SNDMORE)
         plot_socket.send_pyobj(filt_data, zmq.SNDMORE)
-        plot_socket.send_pyobj(is_stim)
+        plot_socket.send_pyobj(filt_data_EMG)
 
         i+=1
 
