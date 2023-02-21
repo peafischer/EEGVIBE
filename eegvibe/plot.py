@@ -12,6 +12,62 @@ import numpy as np
 from .connect import generate_subscriber, is_stop_data
 from .read import DataIterator
 
+def update_plot(plot_refs, track_queue, EMG_queues, socket, timer):
+    topic = socket.recv_string()
+    data_track = socket.recv_pyobj()
+    data_EMG = socket.recv_pyobj()
+    if not is_stop_data(data_track):
+        track_queue.append(data_track)
+
+        plot_refs[0].setData(track_queue)
+
+        if len(plot_refs) > 1:
+            for i, pr in enumerate(plot_refs[1:]):
+                EMG_queues[i].append(data_EMG[i])
+                pr.setData(EMG_queues[i])
+    else:
+        timer.stop()
+        
+def plot_stream(port, topic, 
+    n_samples = 200, autoscale = False, y_range = (-2,2), t_update = 0, 
+    title = "EEG Stream", labels = ["Tracked channel"]):
+
+    context = zmq.Context()
+    socket = generate_subscriber(port, topic, context)
+
+    app = QtWidgets.QApplication([])
+    pw = pg.PlotWidget()
+    p = pw.plotItem
+    p.setTitle(title)
+
+    cm = pg.colormap.get('CET-C7s')
+    colors = cm.getColors()
+    color_idx = np.round(np.linspace(0, len(colors)-1, len(labels))).astype(int)
+
+    x = np.arange(0, n_samples)
+    data_track = deque([0.0]*n_samples, maxlen = n_samples)
+    data_EMG = [deque([0.0]*n_samples, maxlen = n_samples) for _ in range(len(labels) - 1)]
+    
+    if not autoscale:
+        p.disableAutoRange()
+        p.setRange(xRange = (0, n_samples), yRange = y_range)
+
+    p.addLegend()
+    plot_refs = [p.plot(x, data_track, pen = pg.mkPen(color = colors[color_idx[0]]), name = labels[0])]
+    
+    if len(labels) > 1:
+        for i, label in enumerate(labels[1:]):
+            plot_refs.append(p.plot(x, data_EMG[i], pen = pg.mkPen(color = colors[color_idx[i]]), name = label))
+
+    timer = QtCore.QTimer()
+    timer.setInterval(t_update)
+    timer.timeout.connect(lambda: update_plot(plot_refs, data_track, data_EMG, socket, timer))
+    timer.start() 
+
+    pw.show()
+    app.exec()
+    socket.close()
+
 def update_plot_sync(plot_ref, y, stim_mask, data_iter, channel, timer):
     y.append(next(data_iter)[0, channel])
     stim_mask.append(bool(random.getrandbits(1)))
@@ -46,55 +102,3 @@ def plot_sync():
     pw.show()
     app.exec()
     
-def update_plot(plot_ref, y, x, stim_mask, socket, timer):
-    topic = socket.recv_string()
-    data = socket.recv_pyobj()
-    if not is_stop_data(data):
-        is_stim = socket.recv_pyobj()
-        y.append(data)
-        stim_mask.append(is_stim)
-        plot_ref.setData(y)
-    else:
-        timer.stop()
-        
-def plot_stream(port, topic):
-
-    context = zmq.Context()
-    socket = generate_subscriber(port, topic, context)
-
-    app = QtWidgets.QApplication([])
-    pw = pg.PlotWidget()
-    p = pw.plotItem
-    p.setTitle("Stream")
-
-    n_plot_samples = 200
-    x = np.arange(0, n_plot_samples)
-    y = deque([0.0]*n_plot_samples, maxlen = n_plot_samples)
-    stim_mask = deque([False]*n_plot_samples, maxlen = n_plot_samples)
-    
-    p.disableAutoRange()
-    p.setRange(xRange = (0, n_plot_samples), yRange = (-2,2))
-
-    plot_ref = p.plot(x, y)
-
-    #stim_ref = axes.vlines(x[stim_mask], 0, 1, color = 'r')
-
-    timer = QtCore.QTimer()
-    timer.setInterval(0)
-    timer.timeout.connect(lambda: update_plot(plot_ref, y, x, stim_mask, socket, timer))
-    timer.start() 
-
-    pw.show()
-    app.exec()
-    socket.close()
-    
-def update_plot_from_iter(data_iter, plot_ref, stim_ref, canvas, y, x, stim_mask, channel):
-    y.append(next(data_iter)[0, channel])
-    stim_mask.append(bool(random.getrandbits(1)))
-
-    plot_ref.set_ydata(y)
-
-    seg_new = [np.array([[x_stim, 0], [x_stim, 1]]) for x_stim in x[stim_mask]]
-    stim_ref.set_segments(seg_new)
-    
-    canvas.draw()
