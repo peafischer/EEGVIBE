@@ -31,13 +31,13 @@ if __name__ == '__main__':
     publisher_process = Process(target=publish_from_queue, args=(pub_queue, stop_event, port))
     publisher_process.start()
 
-    analyzer_process = Process(target=track_phase, args=(port, topic, plot_port, plot_topic))
+    analyzer_process = Process(target=track_phase, args=(port, topic, plot_port, plot_topic), kwargs={'channels_ms' : range(0,2), "channels_EMG" : [1,2]})
     analyzer_process.start()
 
     saver_process = threading.Thread(target=write_stream, args=('tst', port, topic))
     saver_process.start()
 
-    plot_process = Process(target=plot_stream, args=(plot_port, plot_topic))
+    plot_process = Process(target=plot_stream, args=(plot_port, plot_topic), kwargs={'labels' : ["Track", "EMG1", "EMG2"]})
     plot_process.start()
     
     t0 = time()
