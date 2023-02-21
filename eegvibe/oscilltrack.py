@@ -73,28 +73,24 @@ class Oscilltrack:
 
 
 
-def track_phase(port, topic, port_plot, topic_plot):
+def track_phase(port_publish, topic_publish, port_plot, topic_plot, 
+    phase_target = 0, freq_target = 10, freq_sample = 1000, freq_corner = 8,
+    oscilltrack_suppression = 0.8, channel_track = 0, channels_ms = range(0,31), channels_EMG = [],
+    N_pulses = 1, pulse_duration = 100, IPI = 0.2):
 
-    fc = 10
-    t_step = 0.001
     tracker = Oscilltrack(
-        freq_target=fc, 
-        phase_target=0, 
-        freq_sample=1/t_step, 
-        suppression_cycle=0.8
+        freq_target = freq_target, 
+        phase_target = phase_target, 
+        freq_sample = freq_sample, 
+        suppression_cycle = oscilltrack_suppression
     )
 
-    channel = 0
-
-    N_pulses = 1
-    pulse_duration = 100 # ms
-    IPI = 0.0 # sec
     p = generate_player(N_pulses, pulse_duration, IPI)
 
-    filt = HighPassFilter(freq_corner=8, freq_sample=1/t_step)
-
+    filt = HighPassFilter(freq_corner = freq_corner, freq_sample = freq_sample)
+    
     context = zmq.Context()
-    most_recent_stream = MRStream(port, topic, context)
+    most_recent_stream = MRStream(port_publish, topic_publish, context)
     plot_socket = generate_publisher(port_plot, context)
 
     i = 0
