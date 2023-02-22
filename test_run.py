@@ -6,7 +6,7 @@ from time import sleep, time
 from eegvibe import DataIterator, plot_stream, track_phase, write_stream, publish_from_queue, stream_to_queue
 
 if __name__ == '__main__':
-    n = 1
+    n = 4
     AMP_SR = 1000   # Hz
     channel = 0
     file = './test_data/tst_10.csv'
@@ -34,14 +34,14 @@ if __name__ == '__main__':
     analyzer_process = Process(target=track_phase, args=(port, topic, plot_port, plot_topic), kwargs={'channels_ms' : range(0,2), "channels_EMG" : [1,2]})
     analyzer_process.start()
 
-    saver_process = threading.Thread(target=write_stream, args=('tst', port, topic))
+    saver_process = threading.Thread(target=write_stream, args=(port, topic))
     saver_process.start()
 
     plot_process = Process(target=plot_stream, args=(plot_port, plot_topic), kwargs={'labels' : ["Track", "EMG1", "EMG2"]})
     plot_process.start()
     
     t0 = time()
-    while time()-t0 < 15:
+    while time()-t0 < 5:
         print('Still acquiring')
         sleep(1) 
     
