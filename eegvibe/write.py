@@ -1,9 +1,24 @@
 import zmq
 import h5py
 from time import sleep
+from datetime import date
+from pathlib import Path
+
 from .connect import generate_subscriber, is_stop_data
 
-def write_stream(file_name, port, topic):
+def find_file_name(out_path, data_format):
+    today = date.today()
+    today_str = today.strftime("%d_%m_%Y")
+
+    c = 1
+    file_name = '_'.join([today_str, f"subject_{c}"])
+    while Path(out_path + file_name + '.' + data_format).is_file():
+        c += 1
+        file_name = '_'.join([today_str, f"subject_{c}"])
+    
+    return file_name
+
+def write_stream(port, topic, out_path = './out_data/', data_format = 'hdf5'):
     
     chunk_size = 100
 
@@ -15,8 +30,15 @@ def write_stream(file_name, port, topic):
 
     n_channels = data.shape[1]
     d_type = data.dtype
-    f = h5py.File(file_name + '.hdf5', 'w')
-    dset = f.create_dataset("default", (1, n_channels), maxshape = (None, n_channels), dtype = d_type, chunks = (chunk_size, n_channels))
+    file_name = find_file_name(out_path, data_format)
+    f = h5py.File(out_path + file_name + '.' + data_format, 'w')
+    dset = f.create_dataset(
+        "EEG", 
+        (1, n_channels), 
+        maxshape = (None, n_channels), 
+        dtype = d_type, 
+        chunks = (chunk_size, n_channels)
+    )
 
     n_samples = data.shape[0]
     dset.resize((dset.shape[0] + n_samples, n_channels))
