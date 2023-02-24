@@ -37,7 +37,7 @@ def publish_from_queue(queue, event, port):
     sleep(1)  # Gives enough time to the subscribers to update their status
     socket.close()
 
-def stream_to_publish(event, port, topic):
+def stream_to_publish(event, port, topic = 'stream', topic_impedance = 'impedance'):
     context = zmq.Context()
     socket = generate_publisher(port, context)
 
@@ -50,6 +50,9 @@ def stream_to_publish(event, port, topic):
     bip_ranges = amplifier.getBipolarRangesAvailable()
     stream = amplifier.OpenEegStream(rates[0], ref_ranges[0], bip_ranges[0])
 
+    stream_imp = amplifier.OpenImpedanceStream()
+    impedance_init = stream_imp.getData()
+
     i = 0
     while not event.is_set():
         data = np.array(stream.getData())
@@ -58,7 +61,15 @@ def stream_to_publish(event, port, topic):
         i += 1
     sleep(0.005)  # Sleeps 5 milliseconds to be polite with the CPU
     print(f'Sent {i} samples')
+    socket.send_string(topic, zmq.SNDMORE)
     socket.send_string('stop')
+    sleep(1)  # Gives enough time to the subscribers to update their status
+
+    impedance_final = stream_imp.getData()
+    socket.send_string(topic_impedance, zmq.SNDMORE)
+    socket.send_pyobj(impedance_init, zmq.SNDMORE)
+    socket.send_pyobj(impedance_final)
+
     sleep(1)  # Gives enough time to the subscribers to update their status
     socket.close()
 
@@ -97,7 +108,34 @@ class DataIterator:
     def acquire_data(self, queue):
         while not self.stop:
             queue.put({'topic': 'sample', 'data': next(self)})
-            
+
+    def publish_data(self, port, topic):
+        context = zmq.Context()
+        socket = generate_publisher(port, context)
+
+        i = 0
+        while not self.stop:
+            data = next(self)
+            socket.send_string(topic, zmq.SNDMORE)
+            socket.send_pyobj(data)
+            i += 1
+        sleep(0.005)  # Sleeps 5 milliseconds to be polite with the CPU
+        print(f'Sent {i} samples')
+        socket.send_string(topic, zmq.SNDMORE)
+        socket.send_pyobj('stop')
+        sleep(1)  # Gives enough time to the subscribers to update their status
+
+        topic_impedance = 'imp'
+        impedance_init = 1000
+        impedance_final = 1001
+
+        socket.send_string(topic_impedance, zmq.SNDMORE)
+        socket.send_pyobj(impedance_init, zmq.SNDMORE)
+        socket.send_pyobj(impedance_final)
+
+        sleep(1)  # Gives enough time to the subscribers to update their status
+        socket.close()
+
     def reset(self):
         self.counter = 0
     
