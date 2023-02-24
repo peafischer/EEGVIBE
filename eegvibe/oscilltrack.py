@@ -1,10 +1,5 @@
 import numpy as np
 from math import atan2
-from time import sleep
-import zmq
-from .sound_gen import generate_player
-from .connect import generate_publisher, generate_subscriber, MRStream, is_stop_data
-from .filter import HighPassFilter, mean_subtract
 
 class Oscilltrack:
     a = 0.0
@@ -18,7 +13,7 @@ class Oscilltrack:
     def __init__(self, freq_target, phase_target, freq_sample, suppression_cycle, gamma = None):
         self.phase_target = phase_target
         self.w = 2 * np.pi * freq_target / freq_sample
-        self.gamma = gamma if gamma != None else 125/freq_sample
+        self.gamma = 125/freq_sample if gamma is None else gamma
         self.suppression_reset = suppression_cycle * freq_sample / freq_target
         self.suppression_count = 0
         self.is_prev_above_thrs = False
@@ -70,61 +65,3 @@ class Oscilltrack:
             self.suppression_count = 0
         
         return is_stim
-
-
-
-def track_phase(port_publish, topic_publish, port_plot, topic_plot, 
-    phase_target = 0, freq_target = 10, freq_sample = 1000, freq_corner = 8,
-    oscilltrack_suppression = 0.8, channel_track = 0, channels_ms = range(0,31), channels_EMG = [],
-    N_pulses = 1, pulse_duration = 100, IPI = 0.2):
-
-    tracker = Oscilltrack(
-        freq_target = freq_target, 
-        phase_target = phase_target, 
-        freq_sample = freq_sample, 
-        suppression_cycle = oscilltrack_suppression
-    )
-
-    p = generate_player(N_pulses, pulse_duration, IPI)
-
-    filt = HighPassFilter(freq_corner = freq_corner, freq_sample = freq_sample)
-    
-    context = zmq.Context()
-    most_recent_stream = MRStream(port_publish, topic_publish, context)
-    plot_socket = generate_publisher(port_plot, context)
-
-    filters_EMG = [HighPassFilter(freq_corner = freq_corner, freq_sample = freq_sample) for _ in range(len(channels_EMG))]
-    filt_data_EMG = np.zeros(len(channels_EMG))
-
-    i = 0
-    while True:
-        data = most_recent_stream.receive()
-        if is_stop_data(data):
-            plot_socket.send_string(topic_plot, zmq.SNDMORE)
-            plot_socket.send_pyobj(data, zmq.SNDMORE)
-            plot_socket.send_pyobj(filt_data_EMG)
-            break
-        
-        data_track = mean_subtract(data[0, channels_ms], data[0, channel_track])
-        filt_data = filt.filter(data_track)
-        
-        tracker.update(filt_data)
-        is_stim = tracker.decide_stim()
-
-        if is_stim:
-            p.Play(wait = False)
-
-        for j, c_EMG in enumerate(channels_EMG):
-            data_EMG = mean_subtract(data[0, channels_ms], data[0, c_EMG])
-            filt_data_EMG[j] = filters_EMG[j].filter(data_EMG)
-
-        plot_socket.send_string(topic_plot, zmq.SNDMORE)
-        plot_socket.send_pyobj(filt_data, zmq.SNDMORE)
-        plot_socket.send_pyobj(filt_data_EMG)
-
-        i+=1
-
-    print(f'Analysed {i} samples')
-    sleep(1)  # Gives enough time to the subscribers to update their status
-    most_recent_stream.close()
-    plot_socket.close()

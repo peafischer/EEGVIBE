@@ -15,7 +15,6 @@ def generate_subscriber(port, topic, context):
     socket.connect(f"tcp://localhost:{port}")
     topic_filter = topic.encode('utf-8')
     socket.setsockopt(zmq.SUBSCRIBE, topic_filter)
-    socket.setsockopt(zmq.SUBSCRIBE, ''.encode('utf-8'))
 
     return socket
 

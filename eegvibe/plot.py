@@ -18,16 +18,24 @@ def update_plot(plot_refs, track_queue, EMG_queues, socket, timer):
     data_EMG = socket.recv_pyobj()
     if not is_stop_data(data_track):
         track_queue.append(data_track)
-
         plot_refs[0].setData(track_queue)
-
-        if len(plot_refs) > 1:
-            for i, pr in enumerate(plot_refs[1:]):
-                EMG_queues[i].append(data_EMG[i])
-                pr.setData(EMG_queues[i])
     else:
         timer.stop()
-        
+
+def update_plot_extended(plot_refs, track_queue, EMG_queues, socket, timer):
+    topic = socket.recv_string()
+    data_track = socket.recv_pyobj()
+    data_EMG = socket.recv_pyobj()
+    if not is_stop_data(data_track):
+        track_queue.append(data_track)
+        plot_refs[0].setData(track_queue)
+
+        for i, pr in enumerate(plot_refs[1:]):
+            EMG_queues[i].append(data_EMG[i])
+            pr.setData(EMG_queues[i])
+    else:
+        timer.stop()
+ 
 def plot_stream(port, topic, 
     n_samples = 200, autoscale = False, y_range = (-2,2), t_update = 0, 
     title = "EEG Stream", labels = ["Tracked channel"]):
@@ -58,10 +66,13 @@ def plot_stream(port, topic,
     if len(labels) > 1:
         for i, label in enumerate(labels[1:]):
             plot_refs.append(p.plot(x, data_EMG[i], pen = pg.mkPen(color = colors[color_idx[i]]), name = label))
+        update_func = update_plot_extended
+    else:
+        update_func = update_plot
 
     timer = QtCore.QTimer()
     timer.setInterval(t_update)
-    timer.timeout.connect(lambda: update_plot(plot_refs, data_track, data_EMG, socket, timer))
+    timer.timeout.connect(lambda: update_func(plot_refs, data_track, data_EMG, socket, timer))
     timer.start() 
 
     pw.show()
