@@ -61,3 +61,14 @@ def write_stream(port, topic, out_path = './out_data/', data_format = 'hdf5'):
     f.close()
     print(f'Acquired {i} samples')
     
+def write_stimulator(stim, filename):
+    with open(filename, 'wb') as file:
+        d = {
+            'N_pulses' : stim.N_pulses, 
+            'pulse_duration' : stim.pulse_duration, 
+            'IPI' : stim.IPI,
+            'device_ID' : stim.device_ID,
+            'init_time' : stim.init_time,
+            'stim_times' : stim.stim_times
+        }
+        pickle.dump(d, file, protocol = pickle.HIGHEST_PROTOCOL)
