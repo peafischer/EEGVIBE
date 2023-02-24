@@ -6,17 +6,17 @@ from pathlib import Path
 
 from .connect import generate_subscriber, is_stop_data
 
-def find_file_name(out_path, data_format):
+def find_filename(path = './out_data/', format = 'hdf5'):
     today = date.today()
     today_str = today.strftime("%d_%m_%Y")
 
     c = 1
-    file_name = '_'.join([today_str, f"subject_{c}"])
-    while Path(out_path + file_name + '.' + data_format).is_file():
+    filename = '_'.join([today_str, f"subject_{c}"])
+    while Path(path + filename + '.' + format).is_file():
         c += 1
-        file_name = '_'.join([today_str, f"subject_{c}"])
+        filename = '_'.join([today_str, f"subject_{c}"])
     
-    return file_name
+    return (path + filename + '.' + format)
 
 def write_stream(port, topic, out_path = './out_data/', data_format = 'hdf5'):
     
