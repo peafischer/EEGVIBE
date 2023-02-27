@@ -14,7 +14,7 @@ class Oscilltrack:
         self.phase_target = phase_target
         self.w = 2 * np.pi * freq_target / freq_sample
         self.gamma = 125/freq_sample if gamma is None else gamma
-        self.suppression_reset = suppression_cycle * freq_sample / freq_target
+        self.suppression_reset = int(round(suppression_cycle * freq_sample / freq_target))
         self.suppression_count = 0
         self.is_prev_above_thrs = False
 
