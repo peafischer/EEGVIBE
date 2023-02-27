@@ -3,7 +3,8 @@ import threading
 import pickle
 from time import sleep, time
 
-from eegvibe import DataIterator, plot_stream, analysis, write_stream, find_filename, stream_to_publish, Stimulator
+from eegvibe import (DataIterator, plot_stream, analysis, write_stream, find_filename, HighPassFilter, Oscilltrack,
+                     stream_to_publish, CLStimulator, init_CLStimulator, SemiCLStimulator, init_SemiCLStimulator)
 
 if __name__ == '__main__':
     n = 1
@@ -22,6 +23,36 @@ if __name__ == '__main__':
 
     data_iter = DataIterator(n_samples=n, sampling_rate=AMP_SR, data_file=file)
     
+    tracker = Oscilltrack(
+        freq_target = 10, 
+        phase_target = 0, 
+        freq_sample = AMP_SR, 
+        suppression_cycle = 0.8
+    )
+
+    stim = CLStimulator(
+        N_pulses_stim = 1, 
+        N_stim_train = 20, 
+        ITI = 0.7, 
+        pulse_duration = 0.1, 
+        IPI = 0.2, 
+        device_ID = 2
+    )
+    """
+    stim = SemiCLStimulator(
+        N_pulses = 1, 
+        ITI = 0.7, 
+        pulse_duration = 0.1, 
+        IPI = 0.2, 
+        device_ID = 2
+    )
+    """
+
+    filt = HighPassFilter(
+        freq_corner = 8, 
+        freq_sample = AMP_SR
+    )
+
     read_thread = threading.Thread(target=data_iter.publish_data, args=(port, topic))
     read_thread.start()
     
@@ -36,8 +67,8 @@ if __name__ == '__main__':
 
     analysis_process = Process(
         target=analysis, 
-        args=(port, topic, plot_port, plot_topic, file_stim), 
-        kwargs={'channels_ms' : range(0,2), "channels_EMG" : [1,2], "stim_device_ID" : 1}
+        args=(port, topic, plot_port, plot_topic, tracker, stim, filt, filt), 
+        kwargs={'filename_stim' : file_stim, 'channels_ms' : range(0,2), "channels_EMG" : [1,2]}
     )
     analysis_process.start()
 
@@ -68,8 +99,7 @@ if __name__ == '__main__':
 
     sleep(2)
     print('Starting replay')
-    with open(file_stim, 'rb') as f:
-        d = pickle.load(f)
-
-    s = Stimulator(N_pulses = d['N_pulses'], IPI = d['IPI'], pulse_duration = d['pulse_duration'], device_ID = d['device_ID'], stim_times = d['stim_times'])
+    s = init_CLStimulator(file_stim)
+    s.generate_player()
     s.replay()
+    print(s.stim_times)
