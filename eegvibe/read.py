@@ -6,38 +6,20 @@ from threading import Event
 import numpy as np
 import pandas as pd
 import time
+from warnings import warn
 
-def stream_to_queue(queue, event):
-    factory = eego_sdk.factory()
-    amplifiers = factory.getAmplifiers()
-    amplifier = amplifiers[0]
-    
-    rates = amplifier.getSamplingRatesAvailable()
-    ref_ranges = amplifier.getReferenceRangesAvailable()
-    bip_ranges = amplifier.getBipolarRangesAvailable()
-    stream = amplifier.OpenEegStream(rates[0], ref_ranges[0], bip_ranges[0])
-    
-    while not event.is_set():
-        queue.put({'topic': 'sample', 'data': np.array(stream.getData())})
+def get_freq_sample(freq_sample, rates):
+    try:
+        rates.index(freq_sample)
+        return freq_sample
+    except:
+        diff = [abs(freq_sample - r) for r in rates]
+        idx = diff.index(min(diff))
+        new_freq = rates[idx]
+        warn(f"Sampling rate {freq_sample} is not available. Using rate={new_freq} as the closest available value.")
+        return new_freq
 
-def publish_from_queue(queue, event, port):
-    context = zmq.Context()
-    socket = generate_publisher(port, context)
-
-    i = 0
-    while not event.is_set():
-        while not queue.empty():
-            data = queue.get()  # Should be a dictionary {'topic': topic, 'data': data}
-            socket.send_string(data['topic'], zmq.SNDMORE)
-            socket.send_pyobj(data['data'])
-            i += 1
-    sleep(0.005)  # Sleeps 5 milliseconds to be polite with the CPU
-    print(f'Sent {i} samples')
-    socket.send_string('stop')
-    sleep(1)  # Gives enough time to the subscribers to update their status
-    socket.close()
-
-def stream_to_publish(event, port, topic = 'stream', topic_impedance = 'impedance'):
+def stream_to_publish(freq_sample, event, port, topic = 'stream', topic_impedance = 'impedance'):
     context = zmq.Context()
     socket = generate_publisher(port, context)
 
@@ -48,10 +30,8 @@ def stream_to_publish(event, port, topic = 'stream', topic_impedance = 'impedanc
     rates = amplifier.getSamplingRatesAvailable()
     ref_ranges = amplifier.getReferenceRangesAvailable()
     bip_ranges = amplifier.getBipolarRangesAvailable()
-    stream = amplifier.OpenEegStream(rates[0], ref_ranges[0], bip_ranges[0])
-
-    stream_imp = amplifier.OpenImpedanceStream()
-    impedance_init = stream_imp.getData()
+    final_freq_sample = get_freq_sample(freq_sample, rates)
+    stream = amplifier.OpenEegStream(final_freq_sample, ref_ranges[0], bip_ranges[0])
 
     i = 0
     while not event.is_set():
@@ -62,9 +42,11 @@ def stream_to_publish(event, port, topic = 'stream', topic_impedance = 'impedanc
     sleep(0.005)  # Sleeps 5 milliseconds to be polite with the CPU
     print(f'Sent {i} samples')
     socket.send_string(topic, zmq.SNDMORE)
-    socket.send_string('stop')
+    socket.send_pyobj('stop')
     sleep(1)  # Gives enough time to the subscribers to update their status
 
+    stream_imp = amplifier.OpenImpedanceStream()
+    impedance_init = stream_imp.getData()
     impedance_final = stream_imp.getData()
     socket.send_string(topic_impedance, zmq.SNDMORE)
     socket.send_pyobj(impedance_init, zmq.SNDMORE)
