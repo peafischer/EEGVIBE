@@ -23,11 +23,7 @@ def test_player(p):
 
 class Stimulator:
     def __init__(self, device_ID, init_time = am.Seconds(), stim_times = []):
-        #self.pulse_duration = pulse_duration
-        #self.IPI = IPI
         self.device_ID = device_ID
-        #self.player = generate_player(N_pulses, pulse_duration, IPI, device_ID)
-        #self.player = None
         self.init_time = init_time
         self.stim_times = stim_times
     
@@ -54,7 +50,7 @@ class CLStimulator(Stimulator):
         self.train_duration = IPI * (N_pulses_stim - 1) + pulse_duration * N_pulses_stim
 
     def stimulate(self):
-        if self.N_stim_current > self.N_stim_train:
+        if self.N_stim_current >= self.N_stim_train:
             self.suppression_time = am.Seconds()
             self.N_stim_current = 0
         elif (self.suppression_time + self.train_duration + self.ITI <= am.Seconds()):
@@ -115,7 +111,7 @@ class SemiCLStimulator(Stimulator):
                 'stim_times' : self.stim_times
             }
             pickle.dump(d, file, protocol = pickle.HIGHEST_PROTOCOL)  
-
+     
 def init_CLStimulator(filename):
      with open(filename, 'rb') as f:
         d = pickle.load(f)
