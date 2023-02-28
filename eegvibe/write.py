@@ -4,18 +4,20 @@ import pickle
 from time import sleep
 from datetime import date
 from pathlib import Path
+from warnings import warn
 
 from .connect import generate_subscriber, is_stop_data
 
-def find_filename(path = './out_data/', format = 'hdf5'):
+def find_filename(subject_ID, path = './out_data/', format = 'hdf5'):
     today = date.today()
     today_str = today.strftime("%d_%m_%Y")
 
-    c = 1
-    filename = '_'.join([today_str, f"subject_{c}"])
+    c = 0
+    filename = '_'.join([today_str, f'{subject_ID}'])
     while Path(path + filename + '.' + format).is_file():
+        warn(f"File with subject_ID={subject_ID} already exists, incrementing subject_ID by 1.")
         c += 1
-        filename = '_'.join([today_str, f"subject_{c}"])
+        filename = '_'.join([today_str, f'{subject_ID + c}'])
     
     return (path + filename + '.' + format)
 
