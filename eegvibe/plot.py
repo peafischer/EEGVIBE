@@ -48,9 +48,10 @@ def plot_stream(port, topic,
     p = pw.plotItem
     p.setTitle(title)
 
-    cm = pg.colormap.get('CET-C7s')
-    colors = cm.getColors()
-    color_idx = np.round(np.linspace(0, len(colors)-1, len(labels))).astype(int)
+    #cm = pg.colormap.get('CET-C7s')
+    #colors = cm.getColors()
+    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
+    #color_idx = np.round(np.linspace(0, len(colors)-1, len(labels))).astype(int)
 
     x = np.arange(0, n_samples)
     data_track = deque([0.0]*n_samples, maxlen = n_samples)
@@ -61,11 +62,13 @@ def plot_stream(port, topic,
         p.setRange(xRange = (0, n_samples), yRange = y_range)
 
     p.addLegend()
-    plot_refs = [p.plot(x, data_track, pen = pg.mkPen(color = colors[color_idx[0]]), name = labels[0])]
+    plot_refs = [p.plot(x, data_track, pen = pg.mkPen(color = colors[0]), name = labels[0])]
+    #plot_refs = [p.plot(x, data_track, name = labels[0])]
     
     if len(labels) > 1:
         for i, label in enumerate(labels[1:]):
-            plot_refs.append(p.plot(x, data_EMG[i], pen = pg.mkPen(color = colors[color_idx[i]]), name = label))
+            plot_refs.append(p.plot(x, data_EMG[i], pen = pg.mkPen(color = colors[i+1]), name = label))
+            #plot_refs.append(p.plot(x, data_EMG[i], name = label))
         update_func = update_plot_extended
     else:
         update_func = update_plot
