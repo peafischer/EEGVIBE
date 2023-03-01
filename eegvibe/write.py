@@ -16,8 +16,8 @@ def find_filename(subject_ID, path = './out_data/', format = 'hdf5'):
     filename = '_'.join([today_str, f'{subject_ID}'])
     while Path(path + filename + '.' + format).is_file():
         warn(f"File with subject_ID={subject_ID} already exists, incrementing subject_ID by 1.")
-        c += 1
-        filename = '_'.join([today_str, f'{subject_ID + c}'])
+        subject_ID += 1
+        filename = '_'.join([today_str, f'{subject_ID}'])
     
     return (path + filename + '.' + format)
 
@@ -27,9 +27,8 @@ def write_stream(port, topic, filename):
 
     context = zmq.Context()
     socket = generate_subscriber(port, topic, context)
-
-    socket_imp = generate_subscriber(port, 'imp', context)
-
+    socket_imp = generate_subscriber(port, 'impedance', context)
+    
     topic = socket.recv_string()
     data = socket.recv_pyobj() 
 
@@ -63,6 +62,7 @@ def write_stream(port, topic, filename):
     topic_imp = socket_imp.recv_string()
     impedance_init = socket_imp.recv_pyobj() 
     impedance_final = socket_imp.recv_pyobj() 
+    
     dset.attrs['init_impedance'] = impedance_init
     dset.attrs['final_impedance'] = impedance_final
 
