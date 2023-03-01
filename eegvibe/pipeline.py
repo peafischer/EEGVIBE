@@ -54,13 +54,6 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass, oscillt
         freq_sample = freq_sample
     )
 
-    read_thread = threading.Thread(target=data_iter.publish_data, args=(port, topic))
-    read_thread.start()
-    
-    #stop_stream_event = threading.Event()
-    #read_thread = threading.Thread(target=stream_to_publish, args=(stop_stream_event, port, topic))
-    #read_thread.start()
-
     analysis_process = Process(
         target=tracking, 
         args=(port, topic, plot_port, plot_topic, tracker, stim, filt, filt), 
@@ -83,13 +76,20 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass, oscillt
     )
     plot_process.start()
     
+    #read_thread = threading.Thread(target=data_iter.publish_data, args=(port, topic))
+    #read_thread.start()
+    
+    stop_stream_event = threading.Event()
+    read_thread = threading.Thread(target=stream_to_publish, args=(freq_sample, stop_stream_event, port, topic))
+    read_thread.start()
+
     t0 = time()
     while time()-t0 < recording_duration:
         print('Still acquiring')
         sleep(1) 
     
     data_iter.stop = True
-    #stop_stream_event.set()    
+    stop_stream_event.set()    
     plot_process.join()
     saver_process.join()
     analysis_process.join()
@@ -132,13 +132,6 @@ def run_replay(freq_sample, freq_target, phase_target, freq_high_pass, oscilltra
         freq_sample = freq_sample
     )
 
-    read_thread = threading.Thread(target=data_iter.publish_data, args=(port, topic))
-    read_thread.start()
-    
-    #stop_stream_event = threading.Event()
-    #read_thread = threading.Thread(target=stream_to_publish, args=(stop_stream_event, port, topic))
-    #read_thread.start()
-
     analysis_process = Process(
         target=replay, 
         args=(port, topic, plot_port, plot_topic, stim, filt, filt), 
@@ -160,13 +153,20 @@ def run_replay(freq_sample, freq_target, phase_target, freq_high_pass, oscilltra
     )
     plot_process.start()
     
+    #read_thread = threading.Thread(target=data_iter.publish_data, args=(port, topic))
+    #read_thread.start()
+    
+    stop_stream_event = threading.Event()
+    read_thread = threading.Thread(target=stream_to_publish, args=(freq_sample, stop_stream_event, port, topic))
+    read_thread.start()
+    
     t0 = time()
     while time()-t0 < recording_duration:
         print('Still acquiring')
         sleep(1) 
     
     data_iter.stop = True
-    #stop_stream_event.set()    
+    stop_stream_event.set()    
     plot_process.join()
     saver_process.join()
     analysis_process.join()
