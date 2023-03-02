@@ -6,7 +6,8 @@ am.BackEnd.Load('PsychToolboxInterface') # requires PsychToolbox to be installed
 
 def generate_player(N_pulses, pulse_duration, IPI, device_ID):
 
-    s = am.Sound(fs=44100).GenerateWaveform(duration_msec = pulse_duration*1000, freq_hz=440)
+    s = am.Sound(fs=44100).GenerateWaveform(duration_msec = pulse_duration*1000, freq_hz=100)
+    am.Signal.ModulateAmplitude(s, amplitude=1.0)
 
     pulse_train = []
     for _ in range(0, N_pulses-1): 
