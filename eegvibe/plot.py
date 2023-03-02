@@ -37,7 +37,7 @@ def update_plot_extended(plot_refs, track_queue, EMG_queues, socket, timer):
         timer.stop()
  
 def plot_stream(port, topic, 
-    n_samples = 200, autoscale = False, y_range = (-2,2), t_update = 0, 
+    n_samples = 200, autoscale = False, y_range = (-0.002, 0.002), t_update = 0, 
     title = "EEG Stream", labels = ["Tracked channel"]):
 
     context = zmq.Context()
