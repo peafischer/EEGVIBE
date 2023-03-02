@@ -9,9 +9,8 @@ from eegvibe import (DataIterator, plot_stream, tracking, replay, write_stream, 
 def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass, oscilltrack_suppresion,
         is_CL_stim, N_pulses, pulse_duration, ITI, IPI, stim_device_ID,
         channel_track, channels_ref, channels_EMG,
-        subject_ID, N_plot_samples, plot_labels, recording_duration = 10):
-    n = 1
-    file = './test_data/tst_10.csv'
+        subject_ID, N_plot_samples, plot_labels, recording_duration = 10,
+        filename_data = None):
 
     port = 5555
     topic = 'sample'
@@ -21,9 +20,9 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass, oscillt
     out_path = './out_data/'
     file_data = find_filename(subject_ID, out_path, 'hdf5')
     file_stim = find_filename(subject_ID, out_path, 'pkl')
-
-    data_iter = DataIterator(n_samples=n, sampling_rate=freq_sample, data_file=file)
     
+    # TO DO :
+    # change freq_sample to final_freq_sample after sampling frequency is resolved via get_freq_sample()
     tracker = Oscilltrack(
         freq_target = freq_target, 
         phase_target = phase_target, 
@@ -49,14 +48,15 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass, oscillt
             device_ID = stim_device_ID
         )
 
-    filt = HighPassFilter(
+    filter_track = HighPassFilter(
         freq_corner = freq_high_pass, 
         freq_sample = freq_sample
     )
+    filters_EMG = [HighPassFilter(freq_corner = freq_high_pass, freq_sample = freq_sample) for _ in range(len(channels_EMG))]
 
     analysis_process = Process(
         target=tracking, 
-        args=(port, topic, plot_port, plot_topic, tracker, stim, filt, filt), 
+        args=(port, topic, plot_port, plot_topic, tracker, stim, filter_track, filters_EMG), 
         kwargs={
             'filename_stim' : file_stim, 
             'channel_track' : channel_track, 
@@ -76,12 +76,19 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass, oscillt
     )
     plot_process.start()
     
-    #read_thread = threading.Thread(target=data_iter.publish_data, args=(port, topic))
-    #read_thread.start()
-    
     stop_stream_event = threading.Event()
-    read_thread = threading.Thread(target=stream_to_publish, args=(freq_sample, stop_stream_event, port, topic))
-    read_thread.start()
+    if filename_data is None:
+        read_thread = threading.Thread(target=stream_to_publish, args=(freq_sample, stop_stream_event, port, topic))
+        read_thread.start()
+    else:
+        data_iter = DataIterator(
+            n_samples = 8, 
+            freq_sample = freq_sample, 
+            data_file = filename_data
+        )
+        read_thread = threading.Thread(target=data_iter.publish_data, args=(port, topic))
+        read_thread.start()
+    
 
     t0 = time()
     while time()-t0 < recording_duration:
@@ -113,28 +120,20 @@ def run_replay(freq_sample, freq_target, phase_target, freq_high_pass, oscilltra
 
     data_iter = DataIterator(n_samples=n, sampling_rate=freq_sample, data_file=file)
     
-    tracker = Oscilltrack(
-        freq_target = freq_target, 
-        phase_target = phase_target, 
-        freq_sample = freq_sample, 
-        suppression_cycle = oscilltrack_suppresion
-    )
-
-    file_stim = './out_data/28_02_2023_subject_8.pkl'
-    
     if is_CL_stim: 
         stim = init_CLStimulator(filename_stim)
     else:
         stim = init_SemiCLStimulator(filename_stim)
 
-    filt = HighPassFilter(
+    filter_track = HighPassFilter(
         freq_corner = freq_high_pass, 
         freq_sample = freq_sample
     )
+    filters_EMG = [HighPassFilter(freq_corner = 8, freq_sample = 1000) for _ in range(len(channels_EMG))]
 
     analysis_process = Process(
         target=replay, 
-        args=(port, topic, plot_port, plot_topic, stim, filt, filt), 
+        args=(port, topic, plot_port, plot_topic, stim, filter_track, filters_EMG), 
         kwargs={
             'channel_track' : channel_track, 
             'channels_ref' : channels_ref, 
