@@ -1,6 +1,6 @@
 import zmq
 from time import sleep
-from .connect import generate_publisher
+from .connect import generate_publisher, send_array
 #import eego_sdk
 from threading import Event
 import numpy as np
@@ -42,7 +42,7 @@ def run_EEG_stream(freq_sample, event, socket, topic):
     socket.send_pyobj('stop')
     sleep(1)  # Gives enough time to the subscribers to update their status
 
-def get_impedance(socket, topic):
+def get_impedance():
     factory = eego_sdk.factory()
     amplifiers = factory.getAmplifiers()
     amplifier = amplifiers[0]
@@ -53,9 +53,9 @@ def stream_to_publish(freq_sample, event, port, topic = 'stream', topic_impedanc
     context = zmq.Context()
     socket = generate_publisher(port, context)
 
-    impedance_init = get_impedance(socket, topic_impedance)
+    impedance_init = get_impedance()
     run_EEG_stream(freq_sample, event, socket, topic)
-    impedance_final = get_impedance(socket, topic_impedance)
+    impedance_final = get_impedance()
     
     socket.send_string(topic_impedance, zmq.SNDMORE)
     socket.send_pyobj(impedance_init, zmq.SNDMORE)
@@ -65,15 +65,16 @@ def stream_to_publish(freq_sample, event, port, topic = 'stream', topic_impedanc
     socket.close()
 
 class DataIterator:
-    def __init__(self, n_samples, sampling_rate, data_file):
+    def __init__(self, n_samples, freq_sample, data_file):
         # channel is assumed to be zero-indexed
         self.n_samples = n_samples
-        self.sampling_rate = sampling_rate
+        self.freq_sample = freq_sample
         self.counter = 0
         self.stop = False
 
         D = np.array(pd.read_csv(data_file))
-        self.data = D[:, :]
+        #self.data = D[:, :]
+        self.data = D
 
         self.n_rows = len(self.data)
 
@@ -84,13 +85,13 @@ class DataIterator:
         idx_start = self.n_samples * self.counter
         idx_end = idx_start + self.n_samples
         if idx_end <= self.n_rows:
-            time.sleep(self.n_samples/self.sampling_rate)   
+            time.sleep(self.n_samples/self.freq_sample)   
             self.counter += 1
 
             if ((self.n_samples + 1) * self.counter) > self.n_rows:
                 self.reset()
 
-            next_data = self.data[idx_start:idx_end]
+            next_data = self.data[idx_start:idx_end,:]
             return next_data
         else:
             self.counter = 0 # reset iterator
