@@ -8,7 +8,7 @@ from .connect import generate_publisher, generate_subscriber, MRStream, is_stop_
 from .filter import HighPassFilter, mean_subtract
 
 def tracking(port_publish, topic_publish, port_plot, topic_plot, 
-    tracker, stim, filter_track, filter_EMG, filename_stim = None,
+    tracker, stim, filter_track, filters_EMG, filename_stim = None,
     channel_track = 0, channels_ref = range(0,31), channels_EMG = []):
     
     context = zmq.Context()
@@ -17,7 +17,6 @@ def tracking(port_publish, topic_publish, port_plot, topic_plot,
 
     stim.generate_player()
 
-    filters_EMG = [filter_EMG for _ in range(len(channels_EMG))]
     filt_data_EMG = np.zeros(len(channels_EMG))
 
     i = 0
@@ -31,6 +30,7 @@ def tracking(port_publish, topic_publish, port_plot, topic_plot,
         
         for data_sample in data:
             data_track = mean_subtract(data_sample[channels_ref], data_sample[channel_track])
+            #data_track = data_sample[channel_track]
             filt_data = filter_track.filter(data_track)
             
             tracker.update(filt_data)
