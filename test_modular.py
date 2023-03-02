@@ -2,15 +2,13 @@ from multiprocessing import Queue, Process, Event
 import threading
 import pickle
 from time import sleep, time
-
 from eegvibe import (DataIterator, plot_stream, tracking, replay, write_stream, find_filename, HighPassFilter, Oscilltrack,
                      stream_to_publish, CLStimulator, init_CLStimulator, SemiCLStimulator, init_SemiCLStimulator)
 
 if __name__ == '__main__':
     n = 8
     AMP_SR = 1000   # Hz
-    channel = 0
-    file = './test_data/tst_10.csv'
+    file = './test_data/eeg_attend.csv'
 
     port = 5555
     topic = 'sample'
@@ -25,7 +23,7 @@ if __name__ == '__main__':
     data_iter = DataIterator(n_samples=n, sampling_rate=AMP_SR, data_file=file)
     
     tracker = Oscilltrack(
-        freq_target = 50, 
+        freq_target = 10, 
         phase_target = 0, 
         freq_sample = AMP_SR, 
         suppression_cycle = 0.8
@@ -34,19 +32,20 @@ if __name__ == '__main__':
     
     stim = CLStimulator(
         N_pulses_stim = 1, 
-        N_stim_train = 10, 
+        N_stim_train = 50, 
         ITI = 1.0, 
-        pulse_duration = 0.1, 
+        pulse_duration = 0.02, 
         IPI = 0.2, 
-        device_ID = 2
+        device_ID = 1
     )
+    
     """
     stim = SemiCLStimulator(
-        N_pulses = 1, 
+        N_pulses = 30, 
         ITI = 0.7, 
         pulse_duration = 0.1, 
         IPI = 0.2, 
-        device_ID = 2
+        device_ID = 1
     )
     """
 
@@ -61,14 +60,14 @@ if __name__ == '__main__':
     analysis_process = Process(
         target=tracking, 
         args=(port, topic, plot_port, plot_topic, tracker, stim, filt, filt), 
-        kwargs={'filename_stim' : file_stim, 'channel_track' : 0, 'channels_ref' : range(0,2), "channels_EMG" : [1,2]}
+        kwargs={'filename_stim' : file_stim, 'channel_track' : 14, 'channels_ref' : range(0,31), "channels_EMG" : [32]}
     )
     analysis_process.start()
 
     plot_process = Process(
         target=plot_stream, 
         args=(plot_port, plot_topic),
-        kwargs={'n_samples' : 1000, 'labels' : ["Track", "EMG1", "EMG2"]}
+        kwargs={'n_samples' : 1000, 'labels' : ["Track", "EMG1"]}
     )
     plot_process.start()
     
