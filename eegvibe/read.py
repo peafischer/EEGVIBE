@@ -49,9 +49,16 @@ def get_impedance(amplifier_ID):
     factory = eego_sdk.factory()
     amplifiers = factory.getAmplifiers()
     amplifier = amplifiers[amplifier_ID]
-    stream_imp = amplifier.OpenImpedanceStream()
-    return list(stream_imp.getData())
+    stream = amplifier.OpenImpedanceStream()
+    return list(stream.getData())
     
+def get_channel_names(amplifier_ID):
+    factory = eego_sdk.factory()
+    amplifiers = factory.getAmplifiers()
+    amplifier = amplifiers[amplifier_ID]
+    stream = amplifier.OpenImpedanceStream()
+    return list(stream.getChannelList())
+
 def stream_to_publish(freq_sample, event, port, topic = 'stream'):
     context = zmq.Context()
     socket = generate_publisher(port, context)
