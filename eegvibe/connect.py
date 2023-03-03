@@ -1,9 +1,42 @@
 import zmq
 import threading
 import numpy as np
+from typing import Any, Dict, cast
+
+class SerializingSocket(zmq.Socket):
+    """A class with some extra serialization methods
+    send_zipped_pickle is just like send_pyobj, but uses
+    zlib to compress the stream before sending.
+    send_array sends numpy arrays with metadata necessary
+    for reconstructing the array on the other side (dtype,shape).
+    """
+    def send_array(
+        self, A: np.ndarray, flags: int = 0, copy: bool = True, track: bool = False
+    ) -> Any:
+        """send a numpy array with metadata"""
+        md = dict(
+            dtype=str(A.dtype),
+            shape=A.shape,
+        )
+        self.send_json(md, flags | zmq.SNDMORE)
+        return self.send(A, flags, copy=copy, track=track)
+
+    def recv_array(
+        self, flags: int = 0, copy: bool = True, track: bool = False
+    ) -> np.ndarray:
+        """recv a numpy array"""
+        md = cast(Dict[str, Any], self.recv_json(flags=flags))
+        msg = self.recv(flags=flags, copy=copy, track=track)
+        A = np.frombuffer(msg, dtype=md['dtype'])  # type: ignore
+        return A.reshape(md['shape'])
+
+
+class SerializingContext(zmq.Context[SerializingSocket]):
+    _socket_class = SerializingSocket
 
 def is_stop_data(data):
-    return isinstance(data, str)
+    #return isinstance(data, str)
+    return not data.size
 
 def generate_publisher(port, context):
     socket = context.socket(zmq.PUB)
@@ -42,10 +75,13 @@ class MRStream:
         return self.data
 
     def run(self):
+        #socket = generate_subscriber(self.port, self.topic, self.context)
         socket = generate_subscriber(self.port, self.topic, self.context)
+
         while not self.stop:
             topic = socket.recv_string()
-            self.data = socket.recv_pyobj() 
+            #self.data = socket.recv_pyobj() 
+            self.data = socket.recv_array(copy = False)
             self.data_ready.set()
         socket.close()
 
