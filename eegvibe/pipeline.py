@@ -2,7 +2,7 @@ from multiprocessing import Process
 import threading
 from time import sleep
 
-from .read import DataIterator, stream_to_publish, get_freq_sample, get_impedance
+from .read import DataIterator, stream_to_publish, get_freq_sample, get_impedance, get_channel_names
 from .analysis import tracking, replay
 from .filter import HighPassFilter
 from .oscilltrack import Oscilltrack
@@ -26,6 +26,7 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass, oscillt
     if filename_data is None:
         final_freq_sample = get_freq_sample(freq_sample, amplifier_ID)
         impedance_init = get_impedance(amplifier_ID)
+        channel_names = get_channel_names(amplifier_ID)
 
         read_thread = threading.Thread(
             target=stream_to_publish, 
@@ -34,6 +35,7 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass, oscillt
     else:
         final_freq_sample = freq_sample
         impedance_init = [0.0 for _ in range(0,32)]
+        channel_names = ['' for _ in range(0,32)]
 
         data_iter = DataIterator(
             n_samples = 8, 
@@ -139,6 +141,8 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass, oscillt
     metadata_dict = {
         'impedance_init' : impedance_init,
         'impedance_final' : impedance_final,
+        'channel_names' : channel_names,
+        'channels_ref' : channels_ref,
         'freq_sample' : final_freq_sample,
         'recording_duration' : recording_duration,
         'oscilltrack_suppression' : oscilltrack_suppresion,
@@ -172,6 +176,7 @@ def run_replay(freq_sample, freq_high_pass, is_CL_stim, filename_stim,
     if filename_data is None:
         final_freq_sample = get_freq_sample(freq_sample, amplifier_ID)
         impedance_init = get_impedance(amplifier_ID)
+        channel_names = get_channel_names(amplifier_ID)
 
         read_thread = threading.Thread(
             target = stream_to_publish, 
@@ -180,6 +185,7 @@ def run_replay(freq_sample, freq_high_pass, is_CL_stim, filename_stim,
     else:
         final_freq_sample = freq_sample
         impedance_init = [0.0 for _ in range(0,32)]
+        channel_names = ['' for _ in range(0,32)]
 
         data_iter = DataIterator(
             n_samples = 8, 
@@ -252,6 +258,8 @@ def run_replay(freq_sample, freq_high_pass, is_CL_stim, filename_stim,
     metadata_dict = {
         'impedance_init' : impedance_init,
         'impedance_final' : impedance_final,
+        'channel_names' : channel_names,
+        'channels_ref' : channels_ref,
         'freq_sample' : final_freq_sample,
         'recording_duration' : recording_duration,
         'replay_file' : filename_stim,
