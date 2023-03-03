@@ -1,6 +1,6 @@
 import zmq
 from time import sleep
-from .connect import generate_publisher, send_array
+from .connect import generate_publisher, send_array, SerializingContext
 #import eego_sdk
 from threading import Event
 import numpy as np
@@ -8,7 +8,11 @@ import pandas as pd
 import time
 from warnings import warn
 
-def get_freq_sample(freq_sample, amplifier):
+def get_freq_sample(freq_sample, amplifier_ID):
+    factory = eego_sdk.factory()
+    amplifiers = factory.getAmplifiers()
+    amplifier = amplifiers[amplifier_ID]
+
     try:
         rates = amplifier.getSamplingRatesAvailable()
         rates.index(freq_sample)
@@ -27,8 +31,7 @@ def run_EEG_stream(freq_sample, event, socket, topic):
     
     ref_ranges = amplifier.getReferenceRangesAvailable()
     bip_ranges = amplifier.getBipolarRangesAvailable()
-    final_freq_sample = get_freq_sample(freq_sample, amplifier)
-    stream = amplifier.OpenEegStream(final_freq_sample, ref_ranges[0], bip_ranges[0])
+    stream = amplifier.OpenEegStream(freq_sample, ref_ranges[1], bip_ranges[0])
     
     i = 0
     while not event.is_set():
@@ -42,31 +45,24 @@ def run_EEG_stream(freq_sample, event, socket, topic):
     socket.send_pyobj('stop')
     sleep(1)  # Gives enough time to the subscribers to update their status
 
-def get_impedance():
+def get_impedance(amplifier_ID):
     factory = eego_sdk.factory()
     amplifiers = factory.getAmplifiers()
-    amplifier = amplifiers[0]
+    amplifier = amplifiers[amplifier_ID]
     stream_imp = amplifier.OpenImpedanceStream()
     return list(stream_imp.getData())
     
-def stream_to_publish(freq_sample, event, port, topic = 'stream', topic_impedance = 'impedance'):
+def stream_to_publish(freq_sample, event, port, topic = 'stream'):
     context = zmq.Context()
     socket = generate_publisher(port, context)
 
-    impedance_init = get_impedance()
     run_EEG_stream(freq_sample, event, socket, topic)
-    impedance_final = get_impedance()
-    
-    socket.send_string(topic_impedance, zmq.SNDMORE)
-    socket.send_pyobj(impedance_init, zmq.SNDMORE)
-    socket.send_pyobj(impedance_final)
-    
+
     sleep(1)  # Gives enough time to the subscribers to update their status
     socket.close()
 
 class DataIterator:
     def __init__(self, n_samples, freq_sample, data_file):
-        # channel is assumed to be zero-indexed
         self.n_samples = n_samples
         self.freq_sample = freq_sample
         self.counter = 0
@@ -91,7 +87,7 @@ class DataIterator:
             if ((self.n_samples + 1) * self.counter) > self.n_rows:
                 self.reset()
 
-            next_data = self.data[idx_start:idx_end,:]
+            next_data = np.ascontiguousarray(self.data[idx_start:idx_end,:])
             return next_data
         else:
             self.counter = 0 # reset iterator
@@ -102,7 +98,8 @@ class DataIterator:
             queue.put({'topic': 'sample', 'data': next(self)})
 
     def publish_data(self, port, topic = 'stream', topic_impedance = 'impedance'):
-        context = zmq.Context()
+        #context = zmq.Context()
+        context = SerializingContext()
         socket = generate_publisher(port, context)
 
         impedance_init = list(np.zeros(32)*1000)
@@ -111,12 +108,14 @@ class DataIterator:
         while not self.stop:
             data = next(self)
             socket.send_string(topic, zmq.SNDMORE)
-            socket.send_pyobj(data)
+            #socket.send_pyobj(data)
+            socket.send_array(data)
             i += 1
         sleep(0.005)  # Sleeps 5 milliseconds to be polite with the CPU
         print(f'Sent {i} samples')
         socket.send_string(topic, zmq.SNDMORE)
-        socket.send_pyobj('stop')
+        #socket.send_pyobj('stop')
+        socket.send_array(np.empty(0))
         sleep(1)  # Gives enough time to the subscribers to update their status
 
         impedance_final = list(np.ones(32)*1000)
