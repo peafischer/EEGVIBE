@@ -1,42 +1,74 @@
 import zmq
 import h5py
 import pickle
+import numpy as np
 from time import sleep
 from datetime import date
 from pathlib import Path
 from warnings import warn
 
-from .connect import generate_subscriber, is_stop_data
+from .connect import generate_subscriber, is_stop_data, SerializingContext
 
-def find_filename(subject_ID, path = './out_data/', format = 'hdf5'):
+def get_filename(participant_ID, channel_track, freq_target, stim_mode, phase_target, label, count):
     today = date.today()
     today_str = today.strftime("%d_%m_%Y")
 
-    c = 0
-    filename = '_'.join([today_str, f'{subject_ID}'])
-    while Path(path + filename + '.' + format).is_file():
-        warn(f"File with subject_ID={subject_ID} already exists, incrementing subject_ID by 1.")
-        subject_ID += 1
-        filename = '_'.join([today_str, f'{subject_ID}'])
+    phase_degrees = np.around(np.rad2deg(phase_target), decimals=2)
+
+    if not label:
+        filename = '_'.join(
+            [today_str, 
+            f'P{participant_ID}', 
+            f'Ch{channel_track}',
+            f'FRQ={freq_target}Hz',
+            f'{stim_mode}',
+            f'phase={phase_degrees}',
+            f'v{count}']
+        )  
+    else:
+        filename = '_'.join(
+            [today_str, 
+            f'P{participant_ID}', 
+            f'Ch{channel_track}',
+            f'FRQ={freq_target}Hz',
+            f'{stim_mode}',
+            f'phase={phase_degrees}',
+            label,
+            f'v{count}']
+        )  
+    return filename
+
+def find_filename(participant_ID, channel_track, freq_target, stim_mode, phase_target, label = '', 
+                  path = './out_data/', format = 'hdf5'):
     
-    return (path + filename + '.' + format)
+    count = 1
+    f = get_filename(participant_ID, channel_track, freq_target, stim_mode, phase_target, label, count)
+
+    while Path(path + f + '.' + format).is_file():
+        count += 1
+        f = get_filename(participant_ID, channel_track, freq_target, stim_mode, phase_target, label, count)
+     
+    warn(f"File with provided parameters already exists, changing to v{count}.")
+    return (path + f + '.' + format)
 
 def write_stream(port, topic, filename):
     
     chunk_size = 100
 
-    context = zmq.Context()
+    #context = zmq.Context()
+    context = SerializingContext()
+
     socket = generate_subscriber(port, topic, context)
-    socket_imp = generate_subscriber(port, 'impedance', context)
     
     topic = socket.recv_string()
-    data = socket.recv_pyobj() 
+    #data = socket.recv_pyobj() 
+    data = socket.recv_array()
 
     n_channels = data.shape[1]
     d_type = data.dtype
     f = h5py.File(filename, 'w')
     dset = f.create_dataset(
-        "EEG", 
+        'EEG', 
         (1, n_channels), 
         maxshape = (None, n_channels), 
         dtype = d_type, 
@@ -50,7 +82,8 @@ def write_stream(port, topic, filename):
     i = 1
     while True:
         topic = socket.recv_string()
-        data = socket.recv_pyobj() 
+        #data = socket.recv_pyobj() 
+        data = socket.recv_array()
         if is_stop_data(data):
             break
 
@@ -59,14 +92,18 @@ def write_stream(port, topic, filename):
         dset[-n_samples: , :] = data
         i += 1
 
-    topic_imp = socket_imp.recv_string()
-    impedance_init = socket_imp.recv_pyobj() 
-    impedance_final = socket_imp.recv_pyobj() 
-    
-    dset.attrs['init_impedance'] = impedance_init
-    dset.attrs['final_impedance'] = impedance_final
-
     sleep(1)  # Gives enough time for the publishers to finish sending data before closing the socket
     f.flush()
     f.close()
     print(f'Acquired {i} samples')
+    socket.close()
+
+def add_metadata(metadata, filename):
+    f = h5py.File(filename, 'r+')
+    dset = f['EEG']
+
+    for k, v in metadata.items():
+        dset.attrs[k] = v
+
+    f.flush()
+    f.close()

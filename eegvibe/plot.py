@@ -9,13 +9,13 @@ import zmq
 
 import numpy as np
 
-from .connect import generate_subscriber, is_stop_data
+from .connect import generate_subscriber, is_stop_data, SerializingContext
 from .read import DataIterator
 
 def update_plot(plot_refs, track_queue, EMG_queues, socket, timer):
     topic = socket.recv_string()
-    data_track = socket.recv_pyobj()
-    data_EMG = socket.recv_pyobj()
+    #data_track = socket.recv_pyobj()
+    data_track = socket.recv_array()
     if not is_stop_data(data_track):
         track_queue.append(data_track)
         plot_refs[0].setData(track_queue)
@@ -24,8 +24,10 @@ def update_plot(plot_refs, track_queue, EMG_queues, socket, timer):
 
 def update_plot_extended(plot_refs, track_queue, EMG_queues, socket, timer):
     topic = socket.recv_string()
-    data_track = socket.recv_pyobj()
-    data_EMG = socket.recv_pyobj()
+    #data_track = socket.recv_pyobj()
+    #data_EMG = socket.recv_pyobj()
+    data_track = socket.recv_array()
+    data_EMG = socket.recv_array()
     if not is_stop_data(data_track):
         track_queue.append(data_track)
         plot_refs[0].setData(track_queue)
@@ -40,7 +42,8 @@ def plot_stream(port, topic,
     n_samples = 200, autoscale = False, y_range = (-0.002, 0.002), t_update = 0, 
     title = "EEG Stream", labels = ["Tracked channel"]):
 
-    context = zmq.Context()
+    #context = zmq.Context()
+    context = SerializingContext()
     socket = generate_subscriber(port, topic, context)
 
     app = QtWidgets.QApplication([])
