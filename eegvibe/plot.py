@@ -9,27 +9,19 @@ import zmq
 
 import numpy as np
 
-from .connect import generate_subscriber, is_stop_data, SerializingContext
+from .connect import generate_subscriber, is_stop_data, SerializingContext, MRStream
 from .read import DataIterator
 
-def update_plot(plot_refs, track_queue, EMG_queues, EEG_scale_factor, EEG_vertical_offset, socket, timer):
-    topic = socket.recv_string()
-    #data_track = socket.recv_pyobj()
-    data_track = socket.recv_array()
-    if not is_stop_data(data_track):
-        track_queue.append(data_track[0] * EEG_scale_factor + EEG_vertical_offset)
+def update_plot(plot_refs, track_queue, EMG_queues, EEG_scale_factor, EEG_vertical_offset, most_recent_stream, timer):
+    data = most_recent_stream.receive()
+    if not is_stop_data(data):
+        track_queue.append(data[0] * EEG_scale_factor + EEG_vertical_offset)
         plot_refs[0].setData(track_queue)
     else:
         timer.stop()
 
-def update_plot_extended(plot_refs, track_queue, EMG_queues, EEG_scale_factor, EEG_vertical_offset, socket, timer):
-    topic = socket.recv_string()
-    #data_track = socket.recv_pyobj()
-    #data_EMG = socket.recv_pyobj()
-
-    #data_track = socket.recv_array()
-    #data_EMG = socket.recv_array()
-    data = socket.recv_array()
+def update_plot_extended(plot_refs, track_queue, EMG_queues, EEG_scale_factor, EEG_vertical_offset, most_recent_stream, timer):
+    data = most_recent_stream.receive()
     if not is_stop_data(data):
         track_queue.append(data[0] * EEG_scale_factor + EEG_vertical_offset)
         plot_refs[0].setData(track_queue)
@@ -40,13 +32,13 @@ def update_plot_extended(plot_refs, track_queue, EMG_queues, EEG_scale_factor, E
     else:
         timer.stop()
  
-def plot_stream(port, topic, 
-    n_samples = 200, EEG_scale_factor = 1.0, autoscale = False, y_range = (-0.002, 0.002), t_update = 0, 
+def plot_stream(port, topic, y_range, n_samples, EEG_scale_factor, autoscale, t_update = 0, 
     title = "EEG Stream", labels = ["Tracked channel"]):
 
     #context = zmq.Context()
     context = SerializingContext()
-    socket = generate_subscriber(port, topic, context)
+    #socket = generate_subscriber(port, topic, context)
+    most_recent_stream = MRStream(port, topic, context)
 
     app = QtWidgets.QApplication([])
     pw = pg.PlotWidget()
@@ -55,7 +47,7 @@ def plot_stream(port, topic,
 
     #cm = pg.colormap.get('CET-C7s')
     #colors = cm.getColors()
-    colors = ['b', 'g', 'r', 'c', 'm', 'y', 'k', 'w']
+    colors = ['g', 'r', 'c', 'm', 'y', 'k', 'w', 'b']
     #color_idx = np.round(np.linspace(0, len(colors)-1, len(labels))).astype(int)
 
     x = np.arange(0, n_samples)
@@ -81,9 +73,9 @@ def plot_stream(port, topic,
 
     timer = QtCore.QTimer()
     timer.setInterval(t_update)
-    timer.timeout.connect(lambda: update_func(plot_refs, data_track, data_EMG, EEG_scale_factor, EEG_vertical_offset, socket, timer))
+    timer.timeout.connect(lambda: update_func(plot_refs, data_track, data_EMG, EEG_scale_factor, EEG_vertical_offset, most_recent_stream, timer))
     timer.start() 
 
     pw.show()
     app.exec()
-    socket.close()
+    most_recent_stream.close()
