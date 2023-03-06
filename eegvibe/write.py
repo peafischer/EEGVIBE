@@ -13,7 +13,7 @@ def get_filename(participant_ID, channel_track, freq_target, stim_mode, phase_ta
     today = date.today()
     today_str = today.strftime("%d_%m_%Y")
 
-    phase_degrees = np.around(np.rad2deg(phase_target), decimals=2)
+    phase_degrees = int(np.rad2deg(phase_target))
 
     if not label:
         filename = '_'.join(

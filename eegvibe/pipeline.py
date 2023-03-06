@@ -14,7 +14,8 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass,
         oscilltrack_suppresion, oscilltrack_gamma,
         is_CL_stim, N_pulses, pulse_duration, ITI, IPI, stim_device_ID,
         channel_track, channels_ref, channels_EMG, participant_ID,
-        N_plot_samples, plot_labels, plot_y_range, plot_autoscale = False, 
+        N_plot_samples = 1000, plot_labels = ["Tracked channel"], plot_y_range = (-0.002, 0.002), 
+        plot_EEG_scale_factor = 1.0, plot_autoscale = False, 
         recording_duration = 10, out_path = './out_data/', condition_label = '', filename_data = None,
         amplifier_ID = 0):
 
@@ -122,7 +123,8 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass,
             'n_samples' : N_plot_samples, 
             'labels' : plot_labels, 
             'autoscale' : plot_autoscale, 
-            'y_range' : plot_y_range
+            'y_range' : plot_y_range,
+            'EEG_scale_factor' : plot_EEG_scale_factor
             }
     )
 
@@ -135,16 +137,19 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass,
     
     if filename_data is None:
         stop_stream_event.set()
-        impedance_final = get_impedance(amplifier_ID)
     else:
         data_iter.stop = True
-        impedance_final = [1.0 for _ in range(0,32)]
 
-    plot_process.join()
+    read_thread.join()
     saver_process.join()
     analysis_process.join()
-    read_thread.join()
+    plot_process.join()
     
+    if filename_data is None:
+        impedance_final = get_impedance(amplifier_ID)
+    else:
+        impedance_final = [1.0 for _ in range(0,32)]
+
     metadata_dict = {
         'impedance_init' : impedance_init,
         'impedance_final' : impedance_final,
@@ -168,7 +173,8 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass,
 
 def run_replay(freq_sample, freq_high_pass, is_CL_stim, filename_stim,
         channel_track, channels_ref, channels_EMG, participant_ID,
-        N_plot_samples, plot_labels, plot_y_range, plot_autoscale = False, 
+        N_plot_samples = 1000, plot_labels = ["Tracked channel"], plot_y_range = (-0.002, 0.002), 
+        plot_EEG_scale_factor = 1.0, plot_autoscale = False, 
         recording_duration = 10, condition_label = '', filename_data = None, amplifier_ID = 0):
     
     port = 5555
@@ -177,7 +183,9 @@ def run_replay(freq_sample, freq_high_pass, is_CL_stim, filename_stim,
     plot_topic = 'plot'
 
     fs = filename_stim.split('.')
-    filename_out_data = '.'.join(fs[:-1]) + '_REPLAY' + '.hdf5'
+    fs_name = '.'.join(fs[:-1])
+    fs_name_split = fs_name.split('_')
+    filename_out_data = '.'.join(fs_name_split[:-1]) + '_REPLAY_' + fs_name_split[-1] + '.hdf5'
 
     stop_stream_event = threading.Event()
     if filename_data is None:
@@ -244,29 +252,33 @@ def run_replay(freq_sample, freq_high_pass, is_CL_stim, filename_stim,
             'n_samples' : N_plot_samples, 
             'labels' : plot_labels, 
             'autoscale' : plot_autoscale, 
-            'y_range' : plot_y_range
+            'y_range' : plot_y_range,
+            'EEG_scale_factor' : plot_EEG_scale_factor
             }
     )
 
-    analysis_process.start()
-    saver_process.start()
-    plot_process.start()
     read_thread.start()
+    saver_process.start()
+    analysis_process.start()
+    plot_process.start()
 
     recording_duration = stim.stim_times[-1] - stim.stim_times[0] + 3
     sleep(recording_duration) 
     
     if filename_data is None:
         stop_stream_event.set()
-        impedance_final = get_impedance(amplifier_ID)
     else:
         data_iter.stop = True
-        impedance_final= [1.0 for _ in range(0,32)]
 
     plot_process.join()
     saver_process.join()
     analysis_process.join()
     read_thread.join()
+
+    if filename_data is None:
+        impedance_final = get_impedance(amplifier_ID)
+    else:
+        impedance_final= [1.0 for _ in range(0,32)]
 
     metadata_dict = {
         'impedance_init' : impedance_init,

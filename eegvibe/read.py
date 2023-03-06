@@ -36,7 +36,6 @@ def run_EEG_stream(freq_sample, event, socket, topic):
     while not event.is_set():
         data = np.array(stream.getData())
         socket.send_string(topic, zmq.SNDMORE)
-        #socket.send_pyobj(data)
         socket.send_array(data)
         i += 1
     sleep(0.005)  # Sleeps 5 milliseconds to be polite with the CPU
@@ -63,7 +62,7 @@ def get_channel_names(amplifier_ID):
     return [str(c) for c in channels]
 
 def stream_to_publish(freq_sample, event, port, topic = 'stream'):
-    context = zmq.Context()
+    context = SerializingContext()
     socket = generate_publisher(port, context)
 
     run_EEG_stream(freq_sample, event, socket, topic)
@@ -79,7 +78,6 @@ class DataIterator:
         self.stop = False
 
         D = np.array(pd.read_csv(data_file))
-        #self.data = D[:, :]
         self.data = D
 
         self.n_rows = len(self.data)
