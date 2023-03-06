@@ -11,6 +11,8 @@ class HighPassFilter:
         self.hp = 2.0 * np.pi * freq_corner / freq_sample
 
     def filter(self, data):
-        filt_data = data - self.x
-        self.x += self.hp * filt_data
-        return filt_data
+        #filt_data = data - self.x
+        data -= self.x
+        #self.x += self.hp * filt_data
+        self.x += self.hp * data
+        #return filt_data

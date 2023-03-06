@@ -10,11 +10,12 @@ from .stimulate import CLStimulator, SemiCLStimulator, init_CLStimulator, init_S
 from .write import write_stream, find_filename, add_metadata
 from .plot import plot_stream
 
-def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass, oscilltrack_suppresion,
+def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass, 
+        oscilltrack_suppresion, oscilltrack_gamma,
         is_CL_stim, N_pulses, pulse_duration, ITI, IPI, stim_device_ID,
-        channel_track, channels_ref, channels_EMG,
-        N_plot_samples, plot_labels, participant_ID, recording_duration = 10,
-        out_path = './out_data/', condition_label = '', filename_data = None,
+        channel_track, channels_ref, channels_EMG, participant_ID,
+        N_plot_samples, plot_labels, plot_y_range, plot_autoscale = False, 
+        recording_duration = 10, out_path = './out_data/', condition_label = '', filename_data = None,
         amplifier_ID = 0):
 
     port = 5555
@@ -51,7 +52,8 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass, oscillt
         freq_target = freq_target, 
         phase_target = phase_target, 
         freq_sample = final_freq_sample, 
-        suppression_cycle = oscilltrack_suppresion
+        suppression_cycle = oscilltrack_suppresion,
+        gamma = oscilltrack_gamma
     )
 
     if is_CL_stim: 
@@ -116,7 +118,12 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass, oscillt
     plot_process = Process(
         target = plot_stream, 
         args = (plot_port, plot_topic),
-        kwargs = {'n_samples' : N_plot_samples, 'labels' : plot_labels}
+        kwargs = {
+            'n_samples' : N_plot_samples, 
+            'labels' : plot_labels, 
+            'autoscale' : plot_autoscale, 
+            'y_range' : plot_y_range
+            }
     )
 
     analysis_process.start()
@@ -160,9 +167,9 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass, oscillt
     add_metadata(metadata =  metadata_dict, filename = filename_out_data)
 
 def run_replay(freq_sample, freq_high_pass, is_CL_stim, filename_stim,
-        channel_track, channels_ref, channels_EMG,
-        N_plot_samples, plot_labels, participant_ID, recording_duration = 10,
-        condition_label = '', filename_data = None, amplifier_ID = 0):
+        channel_track, channels_ref, channels_EMG, participant_ID,
+        N_plot_samples, plot_labels, plot_y_range, plot_autoscale = False, 
+        recording_duration = 10, condition_label = '', filename_data = None, amplifier_ID = 0):
     
     port = 5555
     topic = 'sample'
@@ -233,7 +240,12 @@ def run_replay(freq_sample, freq_high_pass, is_CL_stim, filename_stim,
     plot_process = Process(
         target = plot_stream, 
         args = (plot_port, plot_topic),
-        kwargs = {'n_samples' : N_plot_samples, 'labels' : plot_labels}
+        kwargs = {
+            'n_samples' : N_plot_samples, 
+            'labels' : plot_labels, 
+            'autoscale' : plot_autoscale, 
+            'y_range' : plot_y_range
+            }
     )
 
     analysis_process.start()
@@ -241,6 +253,7 @@ def run_replay(freq_sample, freq_high_pass, is_CL_stim, filename_stim,
     plot_process.start()
     read_thread.start()
 
+    recording_duration = stim.stim_times[-1] - stim.stim_times[0] + 3
     sleep(recording_duration) 
     
     if filename_data is None:

@@ -81,7 +81,7 @@ class MRStream:
         while not self.stop:
             topic = socket.recv_string()
             #self.data = socket.recv_pyobj() 
-            self.data = socket.recv_array(copy = False)
+            self.data = socket.recv_array()
             self.data_ready.set()
         socket.close()
 
