@@ -20,7 +20,7 @@ def tracking(port_publish, topic_publish, port_plot, topic_plot,
     stim.generate_player()
 
     filt_data_EMG = np.zeros(len(channels_EMG))
-
+    idx = [channel_track] + channels_EMG
     i = 0
     while True:
         data = most_recent_stream.receive()
@@ -31,32 +31,41 @@ def tracking(port_publish, topic_publish, port_plot, topic_plot,
             plot_socket.send_string(topic_plot, zmq.SNDMORE)
             #plot_socket.send_pyobj(data, zmq.SNDMORE)
             #plot_socket.send_pyobj(filt_data_EMG)
-            plot_socket.send_array(data, zmq.SNDMORE)
-            plot_socket.send_array(filt_data_EMG)
+
+            #plot_socket.send_array(data, zmq.SNDMORE)
+            #plot_socket.send_array(filt_data_EMG)
+            plot_socket.send_array(data)
             break
         
-        for data_sample in data:
-            data_track = mean_subtract(data_sample[channels_ref], data_sample[channel_track])
-            #data_track = data_sample[channel_track]
-            filt_data = filter_track.filter(data_track)
-            
-            tracker.update(filt_data)
+        data_channels = data[:, idx].copy()
+        for k, data_sample in enumerate(data_channels):
+            #data_track = mean_subtract(data_sample[channels_ref], data_sample[channel_track])
+            data_sample[0] -= np.mean(data[k, channels_ref])
+
+            #filt_data = filter_track.filter(data_track)
+            filter_track.filter(data_sample[0:1])
+
+            tracker.update(data_sample[0])
             is_stim = tracker.decide_stim()
 
             if is_stim:
                 stim.stimulate()
 
-            for j, c_EMG in enumerate(channels_EMG):
-                filt_data_EMG[j] = filters_EMG[j].filter(data_sample[c_EMG])
+            #for j, c_EMG in enumerate(channels_EMG):
+            for j in range(0, len(channels_EMG)):
+                #filt_data_EMG[j] = filters_EMG[j].filter(data_sample[c_EMG])
+                filters_EMG[j].filter(data_sample[(j+1):(j+2)])
 
             plot_socket.send_string(topic_plot, zmq.SNDMORE)
             #plot_socket.send_pyobj(filt_data, zmq.SNDMORE)
             #plot_socket.send_pyobj(filt_data_EMG)
-            plot_socket.send_array(filt_data, zmq.SNDMORE)
-            plot_socket.send_array(filt_data_EMG)
+
+            #plot_socket.send_array(filt_data, zmq.SNDMORE)
+            #plot_socket.send_array(filt_data_EMG)
+            plot_socket.send_array(data_sample)
         i+=1
 
-    print(f'Analysed {i} samples')
+    print(f'Analysed {i} chunks')
     sleep(10)  # Gives enough time to the subscribers to update their status        
     if filename_stim is not None:
         stim.write_params(filename_stim)

@@ -2,7 +2,6 @@ import zmq
 from time import sleep
 from .connect import generate_publisher, send_array, SerializingContext
 #import eego_sdk
-from threading import Event
 import numpy as np
 import pandas as pd
 import time
@@ -37,12 +36,15 @@ def run_EEG_stream(freq_sample, event, socket, topic):
     while not event.is_set():
         data = np.array(stream.getData())
         socket.send_string(topic, zmq.SNDMORE)
-        socket.send_pyobj(data)
+        #socket.send_pyobj(data)
+        socket.send_array(data)
         i += 1
     sleep(0.005)  # Sleeps 5 milliseconds to be polite with the CPU
     print(f'Sent {i} samples')
     socket.send_string(topic, zmq.SNDMORE)
-    socket.send_pyobj('stop')
+    #socket.send_pyobj('stop')
+    socket.send_array(np.empty(0))
+
     sleep(1)  # Gives enough time to the subscribers to update their status
 
 def get_impedance(amplifier_ID):
@@ -57,7 +59,8 @@ def get_channel_names(amplifier_ID):
     amplifiers = factory.getAmplifiers()
     amplifier = amplifiers[amplifier_ID]
     stream = amplifier.OpenImpedanceStream()
-    return list(stream.getChannelList())
+    channels = stream.getChannelList()
+    return [str(c) for c in channels]
 
 def stream_to_publish(freq_sample, event, port, topic = 'stream'):
     context = zmq.Context()
@@ -109,8 +112,6 @@ class DataIterator:
         context = SerializingContext()
         socket = generate_publisher(port, context)
 
-        impedance_init = list(np.zeros(32)*1000)
-
         i = 0
         while not self.stop:
             data = next(self)
@@ -123,13 +124,6 @@ class DataIterator:
         socket.send_string(topic, zmq.SNDMORE)
         #socket.send_pyobj('stop')
         socket.send_array(np.empty(0))
-        sleep(1)  # Gives enough time to the subscribers to update their status
-
-        impedance_final = list(np.ones(32)*1000)
-        socket.send_string(topic_impedance, zmq.SNDMORE)
-        socket.send_pyobj(impedance_init, zmq.SNDMORE)
-        socket.send_pyobj(impedance_final)
-
         sleep(1)  # Gives enough time to the subscribers to update their status
         socket.close()
 

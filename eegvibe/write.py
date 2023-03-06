@@ -48,7 +48,9 @@ def find_filename(participant_ID, channel_track, freq_target, stim_mode, phase_t
         count += 1
         f = get_filename(participant_ID, channel_track, freq_target, stim_mode, phase_target, label, count)
      
-    warn(f"File with provided parameters already exists, changing to v{count}.")
+    if count > 1:
+        warn(f"File with provided parameters already exists, changing to v{count}.")
+        
     return (path + f + '.' + format)
 
 def write_stream(port, topic, filename):
