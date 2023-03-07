@@ -11,58 +11,38 @@ def tracking(port_publish, topic_publish, port_plot, topic_plot,
     tracker, stim, filter_track, filters_EMG, filename_stim = None,
     channel_track = 0, channels_ref = range(0,31), channels_EMG = []):
     
-    #context = zmq.Context()
     context = SerializingContext()
     most_recent_stream = MRStream(port_publish, topic_publish, context)
-    socket = generate_subscriber(port_publish, topic_publish, context)
     plot_socket = generate_publisher(port_plot, context)
+
+    data_channels = np.zeros(len(channels_EMG) + 1)
 
     stim.generate_player()
 
-    filt_data_EMG = np.zeros(len(channels_EMG))
-    idx = [channel_track] + channels_EMG
     i = 0
     while True:
         data = most_recent_stream.receive()
-        #topic = socket.recv_string()
-        #data = socket.recv_array() 
 
         if is_stop_data(data):
             plot_socket.send_string(topic_plot, zmq.SNDMORE)
-            #plot_socket.send_pyobj(data, zmq.SNDMORE)
-            #plot_socket.send_pyobj(filt_data_EMG)
-
-            #plot_socket.send_array(data, zmq.SNDMORE)
-            #plot_socket.send_array(filt_data_EMG)
             plot_socket.send_array(data)
             break
         
-        data_channels = data[:, idx].copy()
-        for k, data_sample in enumerate(data_channels):
-            #data_track = mean_subtract(data_sample[channels_ref], data_sample[channel_track])
-            data_sample[0] -= np.mean(data[k, channels_ref])
+        for data_sample in data:
+            data_channels[0] = mean_subtract(data_sample[channels_ref], data_sample[channel_track])
+            data_channels[0] = filter_track.filter(data_sample[0])
 
-            #filt_data = filter_track.filter(data_track)
-            filter_track.filter(data_sample[0:1])
-
-            tracker.update(data_sample[0])
+            tracker.update(data_channels[0])
             is_stim = tracker.decide_stim()
 
             if is_stim:
                 stim.stimulate()
 
-            #for j, c_EMG in enumerate(channels_EMG):
-            for j in range(0, len(channels_EMG)):
-                #filt_data_EMG[j] = filters_EMG[j].filter(data_sample[c_EMG])
-                filters_EMG[j].filter(data_sample[(j+1):(j+2)])
+            for j, c in enumerate(channels_EMG):
+                data_channels[j+1] = filters_EMG[j].filter(data_sample[c])
 
             plot_socket.send_string(topic_plot, zmq.SNDMORE)
-            #plot_socket.send_pyobj(filt_data, zmq.SNDMORE)
-            #plot_socket.send_pyobj(filt_data_EMG)
-
-            #plot_socket.send_array(filt_data, zmq.SNDMORE)
-            #plot_socket.send_array(filt_data_EMG)
-            plot_socket.send_array(data_sample)
+            plot_socket.send_array(data_channels)
         i+=1
 
     print(f'Analysed {i} chunks')
@@ -77,51 +57,40 @@ def replay(port_publish, topic_publish, port_plot, topic_plot,
     stim, filter_track, filters_EMG,
     channel_track = 0, channels_ref = range(0,31), channels_EMG = []):
     
-    #context = zmq.Context()
     context = SerializingContext()
-    #most_recent_stream = MRStream(port_publish, topic_publish, context)
-    socket = generate_subscriber(port_publish, topic_publish, context)
+    most_recent_stream = MRStream(port_publish, topic_publish, context)
     plot_socket = generate_publisher(port_plot, context) 
 
-    stim.generate_player()
+    data_channels = np.zeros(len(channels_EMG) + 1)
 
-    filt_data_EMG = np.zeros(len(channels_EMG))
-    
+    stim.generate_player()
     stim_thread = Thread(target=stim.replay)
     stim_thread.start()
 
     i = 0
     while True:
-        #data = most_recent_stream.receive()
-        topic = socket.recv_string()
-        data = socket.recv_array() 
+        data = most_recent_stream.receive()
 
         if is_stop_data(data):
             plot_socket.send_string(topic_plot, zmq.SNDMORE)
-            #plot_socket.send_pyobj(data, zmq.SNDMORE)
-            #plot_socket.send_pyobj(filt_data_EMG)
-            plot_socket.send_array(data, zmq.SNDMORE)
-            plot_socket.send_array(filt_data_EMG)
+            plot_socket.send_array(data)
             break
         
         for data_sample in data:
-            data_track = mean_subtract(data_sample[channels_ref], data_sample[channel_track])
-            filt_data = filter_track.filter(data_track)
+            data_channels[0] = mean_subtract(data_sample[channels_ref], data_sample[channel_track])
+            data_channels[0] = filter_track.filter(data_sample[0])
 
-            for j, c_EMG in enumerate(channels_EMG):
-                filt_data_EMG[j] = filters_EMG[j].filter(data_sample[c_EMG])
+            for j, c in enumerate(channels_EMG):
+                data_channels[j+1] = filters_EMG[j].filter(data_sample[c])
 
             plot_socket.send_string(topic_plot, zmq.SNDMORE)
-            #plot_socket.send_pyobj(filt_data, zmq.SNDMORE)
-            #plot_socket.send_pyobj(filt_data_EMG)
-            plot_socket.send_array(filt_data, zmq.SNDMORE)
-            plot_socket.send_array(filt_data_EMG)
+            plot_socket.send_array(data_channels)
 
         i+=1
 
     print(f'Analysed {i} samples')
     sleep(10)  # Gives enough time to the subscribers to update their status        
 
-    #most_recent_stream.close()
+    most_recent_stream.close()
     stim_thread.join()
     plot_socket.close()
