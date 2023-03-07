@@ -9,6 +9,7 @@ from .oscilltrack import Oscilltrack
 from .stimulate import CLStimulator, SemiCLStimulator, init_CLStimulator, init_SemiCLStimulator
 from .write import write_stream, find_filename, is_CL_stim, add_metadata
 from .plot import plot_stream
+from pathlib import Path
 
 def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass, 
         oscilltrack_suppresion, oscilltrack_gamma,
@@ -148,7 +149,7 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass,
         'channels_ref' : channels_ref,
         'freq_sample' : final_freq_sample,
         'recording_duration' : recording_duration,
-        'oscilltrack_suppression' : oscilltrack_suppresion,
+        'oscilltrack_suppresion' : oscilltrack_suppresion,
         'replay_file' : '',
         'participant_ID' : participant_ID,
         'stim_mode' : sm,
@@ -177,6 +178,9 @@ def run_replay(freq_sample, freq_high_pass, filename_stim,
     fs_name = '.'.join(fs[:-1])
     fs_name_split = fs_name.split('_')
     filename_out_data = '_'.join(fs_name_split[:-1]) + '_REPLAY_' + fs_name_split[-1] + '.hdf5'
+      
+    #if Path(filename_out_data).is_file():
+    #    raise ValueError("File already exists! Change .pkl file")
 
     stop_stream_event = threading.Event()
     if filename_data is None:
