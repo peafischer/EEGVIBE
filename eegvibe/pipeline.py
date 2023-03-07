@@ -1,6 +1,7 @@
 from multiprocessing import Process
 import threading
 from time import sleep
+from pathlib import Path
 
 from .read import read_from_file, read_from_stream, get_freq_sample, get_impedance, get_channel_names
 from .analysis import tracking, replay
@@ -178,9 +179,9 @@ def run_replay(freq_sample, freq_high_pass, filename_stim,
     fs_name = '.'.join(fs[:-1])
     fs_name_split = fs_name.split('_')
     filename_out_data = '_'.join(fs_name_split[:-1]) + '_REPLAY_' + fs_name_split[-1] + '.hdf5'
-      
-    #if Path(filename_out_data).is_file():
-    #    raise ValueError("File already exists! Change .pkl file")
+
+    if Path(filename_out_data).is_file():
+        raise ValueError("File already exists! Change .pkl file")
 
     stop_stream_event = threading.Event()
     if filename_data is None:
