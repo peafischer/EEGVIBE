@@ -9,11 +9,19 @@ from warnings import warn
 
 from .connect import generate_subscriber, is_stop_data, SerializingContext
 
+def is_CL_stim(filename):
+    if '_FULL_CL_' in filename:
+        return True 
+    elif '_SEMI_CL_' in filename:
+        return False
+    else:
+        raise ValueError(f'Cannot find stimulation mode in {filename}. Please make sure filename contains either _FULL_CL_ or _SEMI_CL_')
+
 def get_filename(participant_ID, channel_track, freq_target, stim_mode, phase_target, label, count):
     today = date.today()
     today_str = today.strftime("%d_%m_%Y")
 
-    phase_degrees = int(np.rad2deg(phase_target))
+    phase_degrees = int(np.around(np.rad2deg(phase_target)))
 
     if not label:
         filename = '_'.join(
@@ -57,13 +65,11 @@ def write_stream(port, topic, filename):
     
     chunk_size = 100
 
-    #context = zmq.Context()
     context = SerializingContext()
 
     socket = generate_subscriber(port, topic, context)
     
     topic = socket.recv_string()
-    #data = socket.recv_pyobj() 
     data = socket.recv_array()
 
     n_channels = data.shape[1]
@@ -84,7 +90,6 @@ def write_stream(port, topic, filename):
     i = 1
     while True:
         topic = socket.recv_string()
-        #data = socket.recv_pyobj() 
         data = socket.recv_array()
         if is_stop_data(data):
             break
