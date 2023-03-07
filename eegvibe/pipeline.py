@@ -2,19 +2,19 @@ from multiprocessing import Process
 import threading
 from time import sleep
 
-from .read import DataIterator, stream_to_publish, get_freq_sample, get_impedance, get_channel_names
+from .read import read_from_file, read_from_stream, get_freq_sample, get_impedance, get_channel_names
 from .analysis import tracking, replay
 from .filter import HighPassFilter
 from .oscilltrack import Oscilltrack
 from .stimulate import CLStimulator, SemiCLStimulator, init_CLStimulator, init_SemiCLStimulator
-from .write import write_stream, find_filename, add_metadata
+from .write import write_stream, find_filename, is_CL_stim, add_metadata
 from .plot import plot_stream
 
 def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass, 
         oscilltrack_suppresion, oscilltrack_gamma,
         is_CL_stim, N_pulses, pulse_duration, ITI, IPI, stim_device_ID,
         channel_track, channels_ref, channels_EMG, participant_ID,
-        N_plot_samples = 1000, plot_labels = ["Tracked channel"], plot_y_range = (-0.002, 0.002), 
+        N_plot_samples = 1000, plot_labels = ["Tracked channel"], plot_signal_range = (-0.0002, 0.0002), 
         plot_EEG_scale_factor = 1.0, plot_autoscale = False, 
         recording_duration = 10, out_path = './out_data/', condition_label = '', filename_data = None,
         amplifier_ID = 0):
@@ -31,7 +31,7 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass,
         channel_names = get_channel_names(amplifier_ID)
 
         read_thread = threading.Thread(
-            target=stream_to_publish, 
+            target=read_from_stream, 
             args=(final_freq_sample, stop_stream_event, port, topic)
         )
     else:
@@ -39,14 +39,9 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass,
         impedance_init = [0.0 for _ in range(0,32)]
         channel_names = ['' for _ in range(0,32)]
 
-        data_iter = DataIterator(
-            n_samples = 8, 
-            freq_sample = final_freq_sample, 
-            data_file = filename_data
-        )
         read_thread = threading.Thread(
-            target = data_iter.publish_data, 
-            args = (port, topic)
+            target = read_from_file,
+            args = (filename_data, 8, freq_sample, stop_stream_event, port, topic)
         )
     
     tracker = Oscilltrack(
@@ -123,7 +118,7 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass,
             'n_samples' : N_plot_samples, 
             'labels' : plot_labels, 
             'autoscale' : plot_autoscale, 
-            'y_range' : plot_y_range,
+            'signal_range' : plot_signal_range,
             'EEG_scale_factor' : plot_EEG_scale_factor
             }
     )
@@ -135,11 +130,7 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass,
 
     sleep(recording_duration) 
     
-    if filename_data is None:
-        stop_stream_event.set()
-    else:
-        data_iter.stop = True
-
+    stop_stream_event.set()
     read_thread.join()
     saver_process.join()
     analysis_process.join()
@@ -171,9 +162,9 @@ def run_tracking(freq_sample, freq_target, phase_target, freq_high_pass,
     }
     add_metadata(metadata =  metadata_dict, filename = filename_out_data)
 
-def run_replay(freq_sample, freq_high_pass, is_CL_stim, filename_stim,
+def run_replay(freq_sample, freq_high_pass, filename_stim,
         channel_track, channels_ref, channels_EMG, participant_ID,
-        N_plot_samples = 1000, plot_labels = ["Tracked channel"], plot_y_range = (-0.002, 0.002), 
+        N_plot_samples = 1000, plot_labels = ["Tracked channel"], plot_signal_range = (-0.0002, 0.0002), 
         plot_EEG_scale_factor = 1.0, plot_autoscale = False, 
         recording_duration = 10, condition_label = '', filename_data = None, amplifier_ID = 0):
     
@@ -185,7 +176,7 @@ def run_replay(freq_sample, freq_high_pass, is_CL_stim, filename_stim,
     fs = filename_stim.split('.')
     fs_name = '.'.join(fs[:-1])
     fs_name_split = fs_name.split('_')
-    filename_out_data = '.'.join(fs_name_split[:-1]) + '_REPLAY_' + fs_name_split[-1] + '.hdf5'
+    filename_out_data = '_'.join(fs_name_split[:-1]) + '_REPLAY_' + fs_name_split[-1] + '.hdf5'
 
     stop_stream_event = threading.Event()
     if filename_data is None:
@@ -194,25 +185,20 @@ def run_replay(freq_sample, freq_high_pass, is_CL_stim, filename_stim,
         channel_names = get_channel_names(amplifier_ID)
 
         read_thread = threading.Thread(
-            target = stream_to_publish, 
-            args = (final_freq_sample, stop_stream_event, port, topic)
+            target=read_from_stream, 
+            args=(final_freq_sample, stop_stream_event, port, topic)
         )
     else:
         final_freq_sample = freq_sample
         impedance_init = [0.0 for _ in range(0,32)]
         channel_names = ['' for _ in range(0,32)]
 
-        data_iter = DataIterator(
-            n_samples = 8, 
-            freq_sample = final_freq_sample, 
-            data_file = filename_data
-        )
         read_thread = threading.Thread(
-            target = data_iter.publish_data, 
-            args = (port, topic)
+            target = read_from_file,
+            args = (filename_data, 8, freq_sample, stop_stream_event, port, topic)
         )
         
-    if is_CL_stim: 
+    if is_CL_stim(filename_stim): 
         sm = 'FULL_CL'
         stim = init_CLStimulator(filename_stim)
         N_pulses = stim.N_stim_train
@@ -252,7 +238,7 @@ def run_replay(freq_sample, freq_high_pass, is_CL_stim, filename_stim,
             'n_samples' : N_plot_samples, 
             'labels' : plot_labels, 
             'autoscale' : plot_autoscale, 
-            'y_range' : plot_y_range,
+            'signal_range' : plot_signal_range,
             'EEG_scale_factor' : plot_EEG_scale_factor
             }
     )
@@ -265,11 +251,7 @@ def run_replay(freq_sample, freq_high_pass, is_CL_stim, filename_stim,
     recording_duration = stim.stim_times[-1] - stim.stim_times[0] + 3
     sleep(recording_duration) 
     
-    if filename_data is None:
-        stop_stream_event.set()
-    else:
-        data_iter.stop = True
-
+    stop_stream_event.set()
     plot_process.join()
     saver_process.join()
     analysis_process.join()

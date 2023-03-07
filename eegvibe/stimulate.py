@@ -36,7 +36,7 @@ class Stimulator:
         t0 = am.Seconds()
         for t in self.stim_times:
             #sleep(t)
-            self.player.Play(when = t0 + t, wait = True)
+            self.player.Play(when = t0 + t - self.stim_times[0], wait = True)
 
 class CLStimulator(Stimulator):
     def __init__(self, N_pulses_stim, N_stim_train, pulse_duration, IPI, ITI, device_ID, init_time=am.Seconds(), stim_times=[]):
