@@ -30,7 +30,7 @@ def tracking(port_publish, topic_publish, port_plot, topic_plot,
         
         for data_sample in data:
             data_channels[0] = mean_subtract(data_sample[channels_ref], data_sample[channel_track])
-            data_channels[0] = filter_track.filter(data_sample[0])
+            data_channels[0] = filter_track.filter(data_channels[0])
 
             tracker.update(data_channels[0])
             is_stim = tracker.decide_stim()
@@ -78,7 +78,7 @@ def replay(port_publish, topic_publish, port_plot, topic_plot,
         
         for data_sample in data:
             data_channels[0] = mean_subtract(data_sample[channels_ref], data_sample[channel_track])
-            data_channels[0] = filter_track.filter(data_sample[0])
+            data_channels[0] = filter_track.filter(data_channels[0])
 
             for j, c in enumerate(channels_EMG):
                 data_channels[j+1] = filters_EMG[j].filter(data_sample[c])
