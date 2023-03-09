@@ -1,7 +1,7 @@
 import zmq
 from time import sleep
 from .connect import generate_publisher, send_array, SerializingContext
-#import eego_sdk
+import eego_sdk
 import numpy as np
 import pandas as pd
 import h5py
