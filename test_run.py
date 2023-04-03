@@ -26,7 +26,7 @@ if __name__ == '__main__':
     CHAN_TRACK = 14
     CHAN_REFS =  [8, 9, 19, 20]  # for avg ref: range(0,31)
         
-    gamma_param = 0.01 # alternative: 0.005
+    gamma_param = 0.05 # alternative: 0.005
         
     if not replay:    
         run_tracking(freq_sample = 1000, freq_target = 10, phase_target = phase, freq_high_pass = 3, 
