@@ -1,6 +1,8 @@
 # Introduction
 
-This repository contains a workflow for running closed-loop EEG experiments with some stimulation fed back to the participant. The stimulation feedback is triggered on a target phase of a target frequency of the EEG signal. 
+This repository contains a workflow for running closed-loop EEG experiments with stimulation being delivered as waveforms created by the soundcard. The waveforms can drive vibrating actuators, speakers or headphones. 
+The stimulation feedback is triggered on a target phase of a target frequency of the EEG signal. The algorithm used to extract the target phase and determine the stimulation timing is based on McNamara et al.'s Oscilltrack (doi.org/10.1016/j.celrep.2022.111616): https://colinmcn.github.io/OscillTrack/
+OscillTrack is subject to patent application WO/2020/183152 and is provided as is for research use only with the requirement that McNamara et al. (doi.org/) is cited in publications that avail of this method of oscillatory tracking.
 
 In order to minimise computation delays, the workflow is split into components that are ran concurrently or in parallel (using `threading.Thread` or `multiprocessing.Process` respectively). The components implemented until now are reading (`read.py`), writing (`write.py`), analysing EEG & stimulation (`analysis.py`) and plotting (`plot.py`).
 
